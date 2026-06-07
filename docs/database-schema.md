@@ -4,16 +4,30 @@ The initial Prisma schema is intentionally realistic but still small enough to l
 
 ## Models
 
-| Model                | Purpose                                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `User`               | A person who can belong to organizations, report tasks, receive assignments, comment, and get notifications. |
-| `Organization`       | A workspace that groups members and projects.                                                                |
-| `OrganizationMember` | Joins users to organizations and stores their role.                                                          |
-| `Project`            | A project inside an organization. Tasks belong to projects.                                                  |
-| `Task`               | A work item with status, priority, optional assignee, optional reporter, and optional due date.              |
-| `Comment`            | A message attached to a task.                                                                                |
-| `ActivityLog`        | A lightweight audit trail for project activity.                                                              |
-| `Notification`       | A user-facing notification such as an assignment, mention, or reminder.                                      |
+| Model                | Purpose                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `User`               | A person who can authenticate, belong to organizations, report tasks, receive assignments, comment, and get notifications. |
+| `Organization`       | A workspace that groups members and projects.                                                                              |
+| `OrganizationMember` | Joins users to organizations and stores their role.                                                                        |
+| `Project`            | A project inside an organization. Tasks belong to projects.                                                                |
+| `Task`               | A work item with status, priority, optional assignee, optional reporter, and optional due date.                            |
+| `Comment`            | A message attached to a task.                                                                                              |
+| `ActivityLog`        | A lightweight audit trail for project activity.                                                                            |
+| `Notification`       | A user-facing notification such as an assignment, mention, or reminder.                                                    |
+
+## Authentication Foundation
+
+The `User` model includes the fields required for first-party email/password authentication:
+
+- `id` as the stable application identifier
+- `name` as the required display name collected during signup
+- `email` as the required unique login identifier
+- `passwordHash` for the hashed password value only
+- `createdAt` and `updatedAt` for auditing profile and credential changes
+
+Plain-text passwords should never be stored. Signup and login request validation lives in
+`packages/shared` so the frontend and API can reuse the same input contract when auth routes are
+implemented.
 
 ## Enums
 

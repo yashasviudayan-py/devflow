@@ -13,7 +13,7 @@ The DevFlow API starts as a REST API. It should remain predictable, boring, and 
   - `DELETE` for deletion
 - Validate incoming request bodies with Zod schemas.
 - Return stable error shapes from centralized error middleware.
-- Keep authentication out of this scaffold until it is explicitly planned.
+- Keep authentication route work small and use shared auth validation schemas when implemented.
 
 ## Initial Routes
 
@@ -29,6 +29,20 @@ Response:
   "service": "devflow-api"
 }
 ```
+
+## Planned Authentication Routes
+
+These routes are planned for Phase 1 authentication, but are not implemented yet:
+
+| Method | Route          | Purpose                               |
+| ------ | -------------- | ------------------------------------- |
+| POST   | `/auth/signup` | Create a user with email and password |
+| POST   | `/auth/login`  | Authenticate with email and password  |
+| GET    | `/auth/me`     | Return the current authenticated user |
+| POST   | `/auth/logout` | End the current authenticated session |
+
+`POST /auth/signup` should validate request bodies with `signupSchema`. `POST /auth/login` should
+validate request bodies with `loginSchema`.
 
 ## Future Route Ideas
 
