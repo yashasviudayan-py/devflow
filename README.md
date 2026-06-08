@@ -56,6 +56,8 @@ pnpm install
 cp .env.example .env
 ```
 
+Keep `JWT_SECRET` set to a long, non-empty local secret. Never commit real production secrets.
+
 5. Start PostgreSQL:
 
 ```bash
