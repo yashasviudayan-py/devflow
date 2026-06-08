@@ -5,6 +5,9 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": ".",
+    "paths": {
+      "@devflow/shared": ["../../packages/shared/dist/index.d.ts"]
+    },
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "vitest.config.ts"],
