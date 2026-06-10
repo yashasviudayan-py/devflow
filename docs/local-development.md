@@ -26,6 +26,11 @@ cp .env.example .env
 
 The default `DATABASE_URL` matches the PostgreSQL container in `docker-compose.yml`.
 
+`NEXT_PUBLIC_API_URL` tells the web app where the API runs. The web app falls back to
+`http://localhost:4000`, so the default setup works without extra configuration. Note that
+Next.js only loads env files from `apps/web`, so to override the API URL create
+`apps/web/.env.local` with the `NEXT_PUBLIC_API_URL` value.
+
 ## Start PostgreSQL
 
 ```bash
@@ -82,6 +87,21 @@ pnpm dev:api
 
 - Web: `http://localhost:3000`
 - API health: `http://localhost:4000/health`
+
+## Authentication in the Web App
+
+The frontend auth pages live at:
+
+- `http://localhost:3000/signup` — create an account
+- `http://localhost:3000/login` — log in
+- `http://localhost:3000/dashboard` — authenticated user info and logout
+
+The API stores the session JWT in an HTTP-only cookie, so the browser (not JavaScript) holds
+the credential. Every frontend API call uses `credentials: "include"` so the cookie is sent
+between `localhost:3000` and `localhost:4000`. The API's CORS config already allows the web
+origin (`WEB_URL`) with credentials, so no extra setup is needed locally. The `/dashboard`
+page checks `GET /auth/me` on load and redirects to `/login` when the session is missing or
+expired.
 
 ## Quality Checks
 
