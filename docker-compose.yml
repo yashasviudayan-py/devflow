@@ -10,7 +10,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - devflow_postgres_data:/var/lib/postgresql/data
+      # postgres:18 images require the mount at /var/lib/postgresql, not .../data
+      - devflow_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U devflow_user -d devflow"]
       interval: 10s
