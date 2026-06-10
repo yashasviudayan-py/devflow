@@ -1,6 +1,12 @@
 import dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
 
+// Load apps/api/.env first if present, then fall back to the repo root .env
+// (where the docs say to create it). dotenv never overrides existing values,
+// so the more specific file wins. The root path is resolved relative to this
+// file so it works from both src (tsx) and dist (build) at the same depth.
 dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL("../../../../.env", import.meta.url)) });
 
 const apiPort = Number(process.env.API_PORT ?? 4000);
 
