@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { navigationItems } from "@/lib/navigation";
 
 const summaryItems = [
@@ -29,6 +30,26 @@ export function AppShell() {
               </a>
             ))}
           </nav>
+
+          <div className="mt-8 border-t border-neutral-200 pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              Account
+            </p>
+            <div className="flex gap-2 lg:flex-col">
+              <Link
+                href="/login"
+                className="rounded-md px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-950"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-md px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-950"
+              >
+                Sign up
+              </Link>
+            </div>
+          </div>
         </aside>
 
         <section className="px-6 py-8 sm:px-8 lg:px-10">

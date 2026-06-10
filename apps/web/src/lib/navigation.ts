@@ -1,5 +1,5 @@
 export const navigationItems = [
-  { label: "Dashboard", href: "/" },
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Projects", href: "/projects" },
   { label: "Tasks", href: "/tasks" },
   { label: "Settings", href: "/settings" },
