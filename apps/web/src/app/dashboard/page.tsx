@@ -1,34 +1,64 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getCurrentUser, logout, type AuthUser } from "@/lib/api";
+import { OrganizationList } from "@/components/OrganizationList";
+import {
+  getStoredActiveOrganizationId,
+  resolveActiveOrganization,
+  setActiveOrganizationId,
+} from "@/lib/activeOrganization";
+import { getOrganizations, logout, type OrganizationWithRole } from "@/lib/api";
+import { useRequireUser } from "@/lib/useRequireUser";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const user = useRequireUser();
+  const [organizations, setOrganizations] = useState<OrganizationWithRole[] | null>(null);
+  const [organizationsError, setOrganizationsError] = useState<string | null>(null);
+  const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) {
+      return;
+    }
+
     let isActive = true;
 
-    getCurrentUser()
-      .then((currentUser) => {
-        if (isActive) {
-          setUser(currentUser);
+    getOrganizations()
+      .then((loaded) => {
+        if (!isActive) {
+          return;
         }
+
+        setOrganizations(loaded);
+
+        // Fall back to the first organization when the stored one no longer
+        // exists (deleted, or the user was removed from it).
+        const active = resolveActiveOrganization(loaded, getStoredActiveOrganizationId());
+        if (active) {
+          setActiveOrganizationId(active.id);
+        }
+        setActiveOrganizationIdState(active?.id ?? null);
       })
       .catch(() => {
         if (isActive) {
-          router.replace("/login");
+          setOrganizationsError("Could not load your organizations. Please try again.");
         }
       });
 
     return () => {
       isActive = false;
     };
-  }, [router]);
+  }, [user]);
+
+  function handleSelectActive(organizationId: string) {
+    setActiveOrganizationId(organizationId);
+    setActiveOrganizationIdState(organizationId);
+  }
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -36,7 +66,6 @@ export default function DashboardPage() {
 
     try {
       await logout();
-      setUser(null);
       router.replace("/login");
     } catch {
       setLogoutError("Logout failed. Please try again.");
@@ -61,6 +90,9 @@ export default function DashboardPage() {
               DevFlow
             </p>
             <h1 className="mt-1 text-2xl font-semibold">Dashboard</h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              Signed in as {user.name} ({user.email})
+            </p>
           </div>
           <button
             type="button"
@@ -74,18 +106,34 @@ export default function DashboardPage() {
 
         {logoutError ? <p className="mt-4 text-sm text-red-600">{logoutError}</p> : null}
 
-        <section className="mt-8 rounded-md border border-neutral-200 bg-white p-6">
-          <h2 className="text-lg font-semibold">Signed in as</h2>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-sm text-neutral-500">Name</dt>
-              <dd className="mt-1 text-base font-medium">{user.name}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-neutral-500">Email</dt>
-              <dd className="mt-1 text-base font-medium">{user.email}</dd>
-            </div>
-          </dl>
+        <section className="mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Organizations</h2>
+            {organizations && organizations.length > 0 ? (
+              <Link
+                href="/organizations/new"
+                className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
+              >
+                New organization
+              </Link>
+            ) : null}
+          </div>
+
+          <div className="mt-4">
+            {organizationsError ? (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {organizationsError}
+              </p>
+            ) : organizations === null ? (
+              <p className="text-sm text-neutral-500">Loading organizations…</p>
+            ) : (
+              <OrganizationList
+                organizations={organizations}
+                activeOrganizationId={activeOrganizationId}
+                onSelectActive={handleSelectActive}
+              />
+            )}
+          </div>
         </section>
 
         <p className="mt-6 text-sm text-neutral-500">

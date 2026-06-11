@@ -99,9 +99,26 @@ The frontend auth pages live at:
 The API stores the session JWT in an HTTP-only cookie, so the browser (not JavaScript) holds
 the credential. Every frontend API call uses `credentials: "include"` so the cookie is sent
 between `localhost:3000` and `localhost:4000`. The API's CORS config already allows the web
-origin (`WEB_URL`) with credentials, so no extra setup is needed locally. The `/dashboard`
-page checks `GET /auth/me` on load and redirects to `/login` when the session is missing or
-expired.
+origin (`WEB_URL`) with credentials, so no extra setup is needed locally. Authenticated pages
+check `GET /auth/me` on load and redirect to `/login` when the session is missing or expired.
+
+## Organizations in the Web App
+
+The organization pages live at:
+
+- `http://localhost:3000/dashboard` — lists your organizations (with an empty state and a
+  create link when you have none) and lets you pick the active organization
+- `http://localhost:3000/organizations/new` — create an organization (slug is optional; the
+  API generates one from the name when left blank)
+- `http://localhost:3000/organizations/<id>` — organization details and member list
+
+The active organization is only a UI preference, so its id is kept in `localStorage` under
+`devflow.activeOrganizationId`. This is safe because authorization is always enforced by the
+API per request via the HTTP-only cookie; auth tokens are never stored in `localStorage`. If
+the stored organization disappears, the dashboard falls back to your first organization.
+
+To test manually: sign up or log in, open `/dashboard`, create an organization, confirm it
+appears with the **Active** badge, then open it to see yourself listed as `OWNER`.
 
 ## Quality Checks
 

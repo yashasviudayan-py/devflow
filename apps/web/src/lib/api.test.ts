@@ -1,11 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, getApiBaseUrl, getCurrentUser, login, logout, signup } from "./api";
+import {
+  ApiError,
+  createOrganization,
+  getApiBaseUrl,
+  getCurrentUser,
+  getOrganization,
+  getOrganizationMembers,
+  getOrganizations,
+  login,
+  logout,
+  signup,
+} from "./api";
 
 const testUser = {
   id: "user-1",
   name: "Test User",
   email: "test@example.com",
   createdAt: "2026-06-08T00:00:00.000Z",
+};
+
+const testOrganization = {
+  id: "org-1",
+  name: "Acme Inc",
+  slug: "acme-inc",
+  createdAt: "2026-06-08T00:00:00.000Z",
+  updatedAt: "2026-06-08T00:00:00.000Z",
+  role: "OWNER" as const,
 };
 
 function mockFetchResponse(status: number, body: unknown) {
@@ -118,5 +138,79 @@ describe("auth api client", () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).statusCode).toBe(0);
+  });
+});
+
+describe("organization api client", () => {
+  it("lists organizations with credentials included", async () => {
+    const fetchMock = mockFetchResponse(200, { organizations: [testOrganization] });
+
+    const organizations = await getOrganizations();
+
+    expect(organizations).toEqual([testOrganization]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/organizations",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("creates an organization via POST and returns it", async () => {
+    const fetchMock = mockFetchResponse(201, { organization: testOrganization });
+
+    const input = { name: "Acme Inc" };
+    const organization = await createOrganization(input);
+
+    expect(organization).toEqual(testOrganization);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/organizations",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify(input),
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+      }),
+    );
+  });
+
+  it("fetches one organization including the user's role", async () => {
+    const fetchMock = mockFetchResponse(200, { organization: testOrganization });
+
+    const organization = await getOrganization("org-1");
+
+    expect(organization.role).toBe("OWNER");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/organizations/org-1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("fetches organization members", async () => {
+    const testMember = {
+      id: "member-1",
+      role: "OWNER" as const,
+      joinedAt: "2026-06-08T00:00:00.000Z",
+      user: { id: "user-1", name: "Test User", email: "test@example.com" },
+    };
+    const fetchMock = mockFetchResponse(200, { members: [testMember] });
+
+    const members = await getOrganizationMembers("org-1");
+
+    expect(members).toEqual([testMember]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/organizations/org-1/members",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("surfaces the backend error for a duplicate slug", async () => {
+    mockFetchResponse(409, { error: { message: "Slug is already in use.", statusCode: 409 } });
+
+    const error = await createOrganization({ name: "Acme Inc", slug: "acme-inc" }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe("Slug is already in use.");
+    expect((error as ApiError).statusCode).toBe(409);
   });
 });
