@@ -29,6 +29,30 @@ Plain-text passwords should never be stored. Signup and login request validation
 `packages/shared` so the frontend and API can reuse the same input contract when auth routes are
 implemented.
 
+## Organizations and Membership
+
+`Organization` is the workspace boundary for the platform. Every project (and later every task)
+lives inside exactly one organization.
+
+- `name` is required and displayed in the UI.
+- `slug` is required and unique. Clients may provide one; otherwise the API generates a unique
+  slug from the name.
+- `createdAt` and `updatedAt` track changes.
+
+`OrganizationMember` is the join table between `User` and `Organization`. It models a
+many-to-many relationship: one user can belong to many organizations, and one organization can
+have many users.
+
+- `role` (`UserRole` enum) stores the member's permission level inside that organization. The
+  user who creates an organization is automatically its `OWNER`.
+- `@@unique([organizationId, userId])` guarantees a user joins each organization at most once and
+  lets the API look up a membership with a single indexed query.
+- Both foreign keys cascade on delete, so removing a user or organization cleans up memberships.
+- `createdAt` doubles as the "joined at" timestamp exposed by the members API.
+
+Authorization is membership-based: every organization-scoped API request resolves the current
+user's `OrganizationMember` row first, then checks the `role` against the action's requirements.
+
 ## Enums
 
 `UserRole` defines organization permissions:
