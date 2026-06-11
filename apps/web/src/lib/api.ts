@@ -1,10 +1,33 @@
-import type { LoginInput, SignupInput } from "@devflow/shared";
+import type { CreateOrganizationInput, LoginInput, SignupInput, UserRole } from "@devflow/shared";
 
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
   createdAt: string;
+};
+
+export type Organization = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrganizationWithRole = Organization & {
+  role: UserRole;
+};
+
+export type OrganizationMember = {
+  id: string;
+  role: UserRole;
+  joinedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
 };
 
 export class ApiError extends Error {
@@ -85,4 +108,39 @@ export async function logout(): Promise<void> {
   await request<{ success: boolean }>("/auth/logout", {
     method: "POST",
   });
+}
+
+export async function getOrganizations(): Promise<OrganizationWithRole[]> {
+  const data = await request<{ organizations: OrganizationWithRole[] }>("/organizations");
+
+  return data.organizations;
+}
+
+export async function createOrganization(
+  input: CreateOrganizationInput,
+): Promise<OrganizationWithRole> {
+  const data = await request<{ organization: OrganizationWithRole }>("/organizations", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return data.organization;
+}
+
+export async function getOrganization(organizationId: string): Promise<OrganizationWithRole> {
+  const data = await request<{ organization: OrganizationWithRole }>(
+    `/organizations/${organizationId}`,
+  );
+
+  return data.organization;
+}
+
+export async function getOrganizationMembers(
+  organizationId: string,
+): Promise<OrganizationMember[]> {
+  const data = await request<{ members: OrganizationMember[] }>(
+    `/organizations/${organizationId}/members`,
+  );
+
+  return data.members;
 }
