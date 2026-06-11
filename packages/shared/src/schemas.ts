@@ -31,6 +31,39 @@ export const createProjectSchema = z.object({
   description: z.string().trim().max(500).optional(),
 });
 
+const organizationNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Organization name must be at least 2 characters.")
+  .max(100, "Organization name must be at most 100 characters.");
+
+const organizationSlugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(2, "Slug must be at least 2 characters.")
+  .max(50, "Slug must be at most 50 characters.")
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Slug may only contain lowercase letters, numbers, and hyphens.",
+  );
+
+export const createOrganizationSchema = z.object({
+  name: organizationNameSchema,
+  slug: organizationSlugSchema.optional(),
+});
+
+export const updateOrganizationSchema = z
+  .object({
+    name: organizationNameSchema.optional(),
+    slug: organizationSlugSchema.optional(),
+  })
+  .refine((input) => input.name !== undefined || input.slug !== undefined, {
+    message: "At least one field must be provided.",
+  });
+
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
+export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;

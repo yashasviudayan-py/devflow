@@ -86,6 +86,78 @@ emails and wrong passwords:
 }
 ```
 
+## Organization Routes
+
+All organization routes require an authenticated user (the `devflow_auth` cookie). Authorization
+is enforced per organization through reusable middleware:
+
+- `requireOrganizationMember` loads the current user's membership for `:organizationId` and
+  returns `404` when the user is not a member, so non-members cannot probe which organizations
+  exist.
+- `requireOrganizationRole([...roles])` additionally returns `403` when the user is a member but
+  does not hold one of the allowed roles.
+
+| Method | Route                                              | Access         |
+| ------ | -------------------------------------------------- | -------------- |
+| POST   | `/organizations`                                   | Authenticated  |
+| GET    | `/organizations`                                   | Authenticated  |
+| GET    | `/organizations/:organizationId`                   | Member         |
+| PATCH  | `/organizations/:organizationId`                   | OWNER or ADMIN |
+| GET    | `/organizations/:organizationId/members`           | Member         |
+| DELETE | `/organizations/:organizationId/members/:memberId` | OWNER          |
+
+`POST /organizations` validates request bodies with `createOrganizationSchema`. `slug` is
+optional; when omitted, the API generates a unique slug from the name. The creator automatically
+becomes the `OWNER` member. Responds with `201`:
+
+```json
+{
+  "organization": {
+    "id": "clx...",
+    "name": "Acme Inc",
+    "slug": "acme-inc",
+    "createdAt": "2026-06-08T00:00:00.000Z",
+    "updatedAt": "2026-06-08T00:00:00.000Z",
+    "role": "OWNER"
+  }
+}
+```
+
+A user-provided slug that already exists responds with `409`.
+
+`GET /organizations` returns only organizations the current user belongs to, each including the
+user's `role`, as `{ "organizations": [...] }`.
+
+`GET /organizations/:organizationId` returns `{ "organization": { ..., "role": "..." } }` for
+members and `404` for everyone else.
+
+`PATCH /organizations/:organizationId` validates request bodies with `updateOrganizationSchema`
+(`name` and/or `slug`; at least one required) and returns the updated organization.
+
+`GET /organizations/:organizationId/members` returns safe member data only — `passwordHash` is
+never included:
+
+```json
+{
+  "members": [
+    {
+      "id": "clx...",
+      "role": "OWNER",
+      "joinedAt": "2026-06-08T00:00:00.000Z",
+      "user": {
+        "id": "clx...",
+        "name": "Yashasvi Udayan",
+        "email": "yashasvi@example.com"
+      }
+    }
+  ]
+}
+```
+
+`DELETE /organizations/:organizationId/members/:memberId` removes a membership (`memberId` is the
+`OrganizationMember` id). Only an `OWNER` may remove members, and removing the only `OWNER` of an
+organization is rejected with `400`. Responds with `{ "success": true }`.
+
 ## Future Route Ideas
 
 | Method | Route                     | Purpose                 |
