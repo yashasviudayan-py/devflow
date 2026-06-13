@@ -5,6 +5,7 @@ import {
   loginSchema,
   signupSchema,
   updateOrganizationSchema,
+  updateProjectSchema,
 } from "./schemas.js";
 
 describe("signupSchema", () => {
@@ -78,6 +79,28 @@ describe("createProjectSchema", () => {
 
   it("rejects a project name that is too short", () => {
     expect(() => createProjectSchema.parse({ name: "A" })).toThrow();
+  });
+});
+
+describe("updateProjectSchema", () => {
+  it("accepts a name-only update", () => {
+    const parsed = updateProjectSchema.parse({ name: "Renamed project" });
+
+    expect(parsed).toEqual({ name: "Renamed project" });
+  });
+
+  it("accepts an archived-only update", () => {
+    const parsed = updateProjectSchema.parse({ archived: true });
+
+    expect(parsed).toEqual({ archived: true });
+  });
+
+  it("rejects an empty update", () => {
+    expect(() => updateProjectSchema.parse({})).toThrow();
+  });
+
+  it("rejects a name that is too short", () => {
+    expect(() => updateProjectSchema.parse({ name: "A" })).toThrow();
   });
 });
 

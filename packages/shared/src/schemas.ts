@@ -26,10 +26,35 @@ export const loginSchema = z.object({
     .max(128, "Password must be at most 128 characters."),
 });
 
+const projectNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Project name must be at least 2 characters.")
+  .max(100, "Project name must be at most 100 characters.");
+
+const projectDescriptionSchema = z
+  .string()
+  .trim()
+  .max(500, "Project description must be at most 500 characters.");
+
 export const createProjectSchema = z.object({
-  name: z.string().trim().min(2, "Project name must be at least 2 characters.").max(100),
-  description: z.string().trim().max(500).optional(),
+  name: projectNameSchema,
+  description: projectDescriptionSchema.optional(),
 });
+
+export const updateProjectSchema = z
+  .object({
+    name: projectNameSchema.optional(),
+    description: projectDescriptionSchema.optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine(
+    (input) =>
+      input.name !== undefined || input.description !== undefined || input.archived !== undefined,
+    {
+      message: "At least one field must be provided.",
+    },
+  );
 
 const organizationNameSchema = z
   .string()
@@ -65,5 +90,6 @@ export const updateOrganizationSchema = z
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;

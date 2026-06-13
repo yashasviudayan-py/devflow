@@ -158,14 +158,67 @@ never included:
 `OrganizationMember` id). Only an `OWNER` may remove members, and removing the only `OWNER` of an
 organization is rejected with `400`. Responds with `{ "success": true }`.
 
+## Project Routes
+
+Projects live inside organizations, so authorization is derived entirely from the caller's
+membership in the owning organization — there is no separate project membership. All project
+routes require an authenticated user.
+
+| Method | Route                                       | Access                |
+| ------ | ------------------------------------------- | --------------------- |
+| POST   | `/organizations/:organizationId/projects`   | OWNER, ADMIN, MEMBER  |
+| GET    | `/organizations/:organizationId/projects`   | Member (any role)     |
+| GET    | `/projects/:projectId`                      | Member of owning org  |
+| PATCH  | `/projects/:projectId`                      | OWNER or ADMIN        |
+| DELETE | `/projects/:projectId`                      | OWNER or ADMIN        |
+
+The create and list routes are nested under the organization, so the existing
+`requireOrganizationMember` / `requireOrganizationRole` middleware applies directly. The
+`/projects/:projectId` routes resolve the owning organization from the project, then run the same
+membership/role checks through `requireProjectOrganizationMember` /
+`requireProjectOrganizationRole`. When the project does not exist **or** the caller is not a member
+of its organization, the API responds with `404` so it never leaks the existence of inaccessible
+projects.
+
+`VIEWER` is a read-only role: viewers can list and read projects but cannot create them. Creating a
+project requires an active role (`OWNER`, `ADMIN`, or `MEMBER`). Updating, archiving, and deleting
+are restricted to `OWNER` and `ADMIN`, mirroring organization management.
+
+`POST /organizations/:organizationId/projects` validates request bodies with `createProjectSchema`
+(`name` required, `description` optional). The authenticated user is recorded as `createdById`.
+Responds with `201`:
+
+```json
+{
+  "project": {
+    "id": "clx...",
+    "organizationId": "clx...",
+    "createdById": "clx...",
+    "name": "Website redesign",
+    "description": "Refresh the public marketing site.",
+    "archivedAt": null,
+    "createdAt": "2026-06-08T00:00:00.000Z",
+    "updatedAt": "2026-06-08T00:00:00.000Z"
+  }
+}
+```
+
+`GET /organizations/:organizationId/projects` returns `{ "projects": [...] }` for members. Archived
+projects are excluded by default.
+
+`GET /projects/:projectId` returns `{ "project": { ... } }` for members of the owning organization.
+
+`PATCH /projects/:projectId` validates request bodies with `updateProjectSchema` (`name`,
+`description`, and/or `archived`; at least one required) and returns the updated project. Sending
+`{ "archived": true }` soft-archives the project; `{ "archived": false }` restores it.
+
+`DELETE /projects/:projectId` soft-archives the project (sets `archivedAt`) rather than hard-deleting
+it, so the project and its future tasks remain recoverable. Responds with `{ "success": true }`.
+
 ## Future Route Ideas
 
 | Method | Route                     | Purpose                 |
 | ------ | ------------------------- | ----------------------- |
-| GET    | `/projects`               | List projects           |
-| POST   | `/projects`               | Create a project        |
-| GET    | `/projects/:projectId`    | Read one project        |
-| PATCH  | `/projects/:projectId`    | Update one project      |
 | GET    | `/tasks`                  | List tasks              |
 | POST   | `/tasks`                  | Create a task           |
 | PATCH  | `/tasks/:taskId`          | Update one task         |
