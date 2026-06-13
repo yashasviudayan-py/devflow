@@ -12,10 +12,13 @@ import {
   requireOrganizationMember,
   requireOrganizationRole,
 } from "../middleware/organization.middleware.js";
+import { organizationProjectRouter } from "./project.routes.js";
 
 export const organizationRouter = Router();
 
 organizationRouter.use(requireAuth);
+
+organizationRouter.use("/:organizationId/projects", organizationProjectRouter);
 
 organizationRouter.post("/", create);
 organizationRouter.get("/", list);

@@ -53,6 +53,28 @@ have many users.
 Authorization is membership-based: every organization-scoped API request resolves the current
 user's `OrganizationMember` row first, then checks the `role` against the action's requirements.
 
+## Projects
+
+`Project` is a unit of work inside an organization. Every project belongs to exactly one
+organization, and an organization has many projects (`Organization.projects`).
+
+- `organizationId` is the required owning organization. The foreign key cascades on delete, so
+  deleting an organization removes its projects.
+- `createdById` records the user who created the project. It is optional and uses `onDelete:
+  SetNull`, so a project survives (and keeps its history) even if its creator's account is later
+  removed. The reverse relation is `User.createdProjects`.
+- `name` is required; `description` is optional.
+- `archivedAt` enables soft-archiving. The delete endpoint sets this timestamp instead of removing
+  the row, and listings exclude archived projects by default, which keeps a project's future tasks
+  and activity recoverable.
+- `@@index([organizationId])` keeps per-organization listings fast, and `@@index([createdById])`
+  supports "projects I created" style lookups.
+
+Projects do not have their own membership model. Authorization reuses `OrganizationMember`: a
+caller's access to a project is determined by their role in the organization that owns it. This
+keeps the permission model simple and consistent, and the same approach will extend to tasks, which
+are scoped to projects.
+
 ## Enums
 
 `UserRole` defines organization permissions:

@@ -6,6 +6,7 @@ import { errorMiddleware, notFoundMiddleware } from "./middleware/error.middlewa
 import { authRouter } from "./routes/auth.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { organizationRouter } from "./routes/organization.routes.js";
+import { projectRouter } from "./routes/project.routes.js";
 
 export const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use("/auth", authRouter);
 app.use("/health", healthRouter);
 app.use("/organizations", organizationRouter);
+app.use("/projects", projectRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

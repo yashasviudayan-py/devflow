@@ -44,6 +44,7 @@ model User {
   passwordHash            String
   avatarUrl               String?
   organizationMemberships OrganizationMember[]
+  createdProjects         Project[]            @relation("ProjectCreator")
   assignedTasks           Task[]               @relation("TaskAssignee")
   reportedTasks           Task[]               @relation("TaskReporter")
   comments                Comment[]
@@ -78,17 +79,21 @@ model OrganizationMember {
 }
 
 model Project {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
+  createdById    String?
   name           String
   description    String?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  archivedAt     DateTime?
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User?         @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
   tasks          Task[]
   activityLogs   ActivityLog[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([organizationId])
+  @@index([createdById])
 }
 
 model Task {
