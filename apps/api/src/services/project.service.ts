@@ -1,5 +1,6 @@
-import type { CreateProjectInput, UpdateProjectInput } from "@devflow/shared";
+import type { CreateProjectInput, PaginationQuery, UpdateProjectInput } from "@devflow/shared";
 import { Prisma } from "@prisma/client";
+import { toCursorArgs, toPage } from "../lib/pagination.js";
 import { prisma } from "../lib/prisma.js";
 
 const projectSelect = {
@@ -33,18 +34,20 @@ export async function createProject(
   });
 }
 
-export async function listProjects(organizationId: string) {
+export async function listProjects(organizationId: string, pagination: PaginationQuery = {}) {
   // Archived projects are soft-deleted, so they are excluded from the default listing.
-  return prisma.project.findMany({
+  const rows = await prisma.project.findMany({
     where: {
       organizationId,
       archivedAt: null,
     },
-    orderBy: {
-      createdAt: "asc",
-    },
+    // `id` is a stable tiebreaker so cursor pagination never skips/duplicates rows.
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    ...toCursorArgs(pagination),
     select: projectSelect,
   });
+
+  return toPage(rows, pagination);
 }
 
 export async function getProjectById(projectId: string): Promise<ProjectRecord | null> {

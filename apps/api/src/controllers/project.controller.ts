@@ -1,4 +1,4 @@
-import { createProjectSchema, updateProjectSchema } from "@devflow/shared";
+import { createProjectSchema, paginationQuerySchema, updateProjectSchema } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
@@ -63,13 +63,15 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const membership = getMembership(req);
-    const projects = await listProjects(membership.organizationId);
+    const pagination = paginationQuerySchema.parse(req.query);
+    const { items, nextCursor } = await listProjects(membership.organizationId, pagination);
 
     res.status(200).json({
-      projects,
+      projects: items,
+      nextCursor,
     });
   } catch (error) {
-    next(error);
+    handleControllerError(error, next);
   }
 }
 

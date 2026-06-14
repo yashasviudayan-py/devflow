@@ -150,3 +150,14 @@ pnpm lint
 pnpm test
 pnpm build
 ```
+
+### Tests and the database
+
+The API route tests are integration tests: they run real SQL through Prisma against a migrated
+schema instead of an in-memory mock. Start Postgres first (`docker compose up -d postgres`) so
+`pnpm test` can connect.
+
+The suite isolates itself from your dev data by using a dedicated `test` schema in the same
+`devflow` database (`...:5432/devflow?schema=test`). A global setup applies migrations to that schema
+once, and every test truncates only the `test` schema between runs — data in `public` is never
+touched. To point the tests at a different database (for example in CI), set `TEST_DATABASE_URL`.

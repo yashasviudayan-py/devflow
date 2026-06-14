@@ -1,4 +1,8 @@
-import { createOrganizationSchema, updateOrganizationSchema } from "@devflow/shared";
+import {
+  createOrganizationSchema,
+  paginationQuerySchema,
+  updateOrganizationSchema,
+} from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
@@ -56,13 +60,15 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const user = getAuthenticatedUser(req);
-    const organizations = await listOrganizationsForUser(user.id);
+    const pagination = paginationQuerySchema.parse(req.query);
+    const { items, nextCursor } = await listOrganizationsForUser(user.id, pagination);
 
     res.status(200).json({
-      organizations,
+      organizations: items,
+      nextCursor,
     });
   } catch (error) {
-    next(error);
+    handleControllerError(error, next);
   }
 }
 
@@ -99,13 +105,18 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 export async function listMembers(req: Request, res: Response, next: NextFunction) {
   try {
     const membership = getMembership(req);
-    const members = await listOrganizationMembers(membership.organizationId);
+    const pagination = paginationQuerySchema.parse(req.query);
+    const { items, nextCursor } = await listOrganizationMembers(
+      membership.organizationId,
+      pagination,
+    );
 
     res.status(200).json({
-      members,
+      members: items,
+      nextCursor,
     });
   } catch (error) {
-    next(error);
+    handleControllerError(error, next);
   }
 }
 
