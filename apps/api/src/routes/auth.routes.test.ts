@@ -1,100 +1,6 @@
-import type { Express } from "express";
 import request from "supertest";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-process.env.JWT_SECRET = "test-jwt-secret";
-process.env.NODE_ENV = "test";
-process.env.WEB_URL = "http://localhost:3000";
-
-const mockDb = vi.hoisted(() => {
-  type StoredUser = {
-    id: string;
-    name: string;
-    email: string;
-    passwordHash: string;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-
-  type Select = Partial<Record<keyof StoredUser, boolean>>;
-
-  const users: StoredUser[] = [];
-  let nextId = 1;
-
-  function applySelect(user: StoredUser, select?: Select) {
-    if (!select) {
-      return user;
-    }
-
-    return Object.fromEntries(
-      Object.entries(select)
-        .filter(([, shouldInclude]) => shouldInclude)
-        .map(([key]) => [key, user[key as keyof StoredUser]]),
-    );
-  }
-
-  const findUnique = vi.fn(
-    async (args: { where: { id?: string; email?: string }; select?: Select }) => {
-      const user = users.find((candidate) => {
-        return candidate.id === args.where.id || candidate.email === args.where.email;
-      });
-
-      return user ? applySelect(user, args.select) : null;
-    },
-  );
-
-  const create = vi.fn(
-    async (args: {
-      data: { name: string; email: string; passwordHash: string };
-      select?: Select;
-    }) => {
-      const now = new Date("2026-06-08T00:00:00.000Z");
-      const user: StoredUser = {
-        id: `user_${nextId}`,
-        name: args.data.name,
-        email: args.data.email,
-        passwordHash: args.data.passwordHash,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      nextId += 1;
-      users.push(user);
-
-      return applySelect(user, args.select);
-    },
-  );
-
-  return {
-    reset() {
-      users.splice(0, users.length);
-      nextId = 1;
-      findUnique.mockClear();
-      create.mockClear();
-    },
-    user: {
-      create,
-      findUnique,
-    },
-    users,
-  };
-});
-
-vi.mock("../lib/prisma.js", () => ({
-  prisma: {
-    user: mockDb.user,
-  },
-}));
-
-let app: Express;
-
-beforeAll(async () => {
-  ({ app } = await import("../app.js"));
-});
-
-beforeEach(() => {
-  mockDb.reset();
-});
+import { describe, expect, it } from "vitest";
+import { getApp, signupUser } from "../test/harness.js";
 
 function getSetCookieHeader(response: request.Response) {
   const cookies = response.headers["set-cookie"];
@@ -107,6 +13,7 @@ function getSetCookieHeader(response: request.Response) {
 describe("auth routes", () => {
   describe("POST /auth/signup", () => {
     it("creates user successfully", async () => {
+      const app = await getApp();
       const response = await request(app).post("/auth/signup").send({
         name: "Yashasvi Udayan",
         email: " YASHASVI@example.COM ",
@@ -115,15 +22,16 @@ describe("auth routes", () => {
 
       expect(response.status).toBe(201);
       expect(response.body.user).toMatchObject({
-        id: "user_1",
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
       });
-      expect(response.body.user.createdAt).toBe("2026-06-08T00:00:00.000Z");
+      expect(response.body.user.id).toEqual(expect.any(String));
+      expect(response.body.user.createdAt).toEqual(expect.any(String));
       expect(getSetCookieHeader(response).join(";")).toContain("HttpOnly");
     });
 
     it("rejects duplicate email", async () => {
+      const app = await getApp();
       await request(app).post("/auth/signup").send({
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
@@ -141,6 +49,7 @@ describe("auth routes", () => {
     });
 
     it("rejects invalid input", async () => {
+      const app = await getApp();
       const response = await request(app).post("/auth/signup").send({
         name: "Y",
         email: "not-an-email",
@@ -152,6 +61,7 @@ describe("auth routes", () => {
     });
 
     it("does not return passwordHash", async () => {
+      const app = await getApp();
       const response = await request(app).post("/auth/signup").send({
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
@@ -164,6 +74,7 @@ describe("auth routes", () => {
 
   describe("POST /auth/login", () => {
     it("logs in valid user", async () => {
+      const app = await getApp();
       await request(app).post("/auth/signup").send({
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
@@ -177,7 +88,6 @@ describe("auth routes", () => {
 
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
-        id: "user_1",
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
       });
@@ -185,6 +95,7 @@ describe("auth routes", () => {
     });
 
     it("rejects wrong password", async () => {
+      const app = await getApp();
       await request(app).post("/auth/signup").send({
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
@@ -201,6 +112,7 @@ describe("auth routes", () => {
     });
 
     it("rejects unknown email with a generic error", async () => {
+      const app = await getApp();
       const response = await request(app).post("/auth/login").send({
         email: "missing@example.com",
         password: "password123",
@@ -211,6 +123,7 @@ describe("auth routes", () => {
     });
 
     it("does not return passwordHash", async () => {
+      const app = await getApp();
       await request(app).post("/auth/signup").send({
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
@@ -228,19 +141,14 @@ describe("auth routes", () => {
 
   describe("GET /auth/me", () => {
     it("returns user when authenticated", async () => {
-      const signupResponse = await request(app).post("/auth/signup").send({
-        name: "Yashasvi Udayan",
-        email: "yashasvi@example.com",
-        password: "password123",
-      });
+      const app = await getApp();
+      const user = await signupUser("Yashasvi Udayan", "yashasvi@example.com");
 
-      const response = await request(app)
-        .get("/auth/me")
-        .set("Cookie", getSetCookieHeader(signupResponse));
+      const response = await request(app).get("/auth/me").set("Cookie", user.cookies);
 
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
-        id: "user_1",
+        id: user.id,
         name: "Yashasvi Udayan",
         email: "yashasvi@example.com",
       });
@@ -248,6 +156,7 @@ describe("auth routes", () => {
     });
 
     it("returns 401 without valid cookie", async () => {
+      const app = await getApp();
       const response = await request(app).get("/auth/me");
 
       expect(response.status).toBe(401);
@@ -257,6 +166,7 @@ describe("auth routes", () => {
 
   describe("POST /auth/logout", () => {
     it("clears cookie successfully", async () => {
+      const app = await getApp();
       const response = await request(app).post("/auth/logout");
 
       expect(response.status).toBe(200);
