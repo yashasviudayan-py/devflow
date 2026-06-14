@@ -15,6 +15,23 @@ The DevFlow API starts as a REST API. It should remain predictable, boring, and 
 - Return stable error shapes from centralized error middleware.
 - Keep authentication route work small and use shared auth validation schemas.
 
+## Pagination
+
+All list endpoints use cursor pagination with a single, shared convention so clients can treat
+every collection the same way.
+
+- Query parameters (validated by `paginationQuerySchema`): `limit` (optional, default `20`, max
+  `100`) and `cursor` (optional, opaque token).
+- Response envelope: the resource's named array plus a `nextCursor` field, e.g.
+  `{ "projects": [...], "nextCursor": "clx..." }`. `nextCursor` is `null` on the final page.
+- The cursor is the id of the last row in the previous page; clients pass it back verbatim to fetch
+  the next page. Results are ordered by `createdAt` ascending with an `id` tiebreaker, so paging is
+  stable even when rows share a timestamp.
+- An invalid `limit` (non-numeric, `0`, negative, or greater than `100`) responds with `400`.
+
+Example: `GET /organizations/:organizationId/projects?limit=2&cursor=clx123` returns up to two
+projects after `clx123` and a `nextCursor` for the following page.
+
 ## Initial Routes
 
 | Method | Route     | Purpose                    |
@@ -126,7 +143,8 @@ becomes the `OWNER` member. Responds with `201`:
 A user-provided slug that already exists responds with `409`.
 
 `GET /organizations` returns only organizations the current user belongs to, each including the
-user's `role`, as `{ "organizations": [...] }`.
+user's `role`, as `{ "organizations": [...], "nextCursor": ... }`. It accepts the shared `limit` and
+`cursor` pagination parameters.
 
 `GET /organizations/:organizationId` returns `{ "organization": { ..., "role": "..." } }` for
 members and `404` for everyone else.
@@ -135,7 +153,8 @@ members and `404` for everyone else.
 (`name` and/or `slug`; at least one required) and returns the updated organization.
 
 `GET /organizations/:organizationId/members` returns safe member data only — `passwordHash` is
-never included:
+never included. It accepts the shared `limit`/`cursor` pagination parameters and includes
+`nextCursor` alongside `members`:
 
 ```json
 {
@@ -203,8 +222,9 @@ Responds with `201`:
 }
 ```
 
-`GET /organizations/:organizationId/projects` returns `{ "projects": [...] }` for members. Archived
-projects are excluded by default.
+`GET /organizations/:organizationId/projects` returns `{ "projects": [...], "nextCursor": ... }` for
+members and accepts the shared `limit`/`cursor` pagination parameters. Archived projects are excluded
+by default.
 
 `GET /projects/:projectId` returns `{ "project": { ... } }` for members of the owning organization.
 
