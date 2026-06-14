@@ -1,6 +1,11 @@
 import { randomBytes } from "node:crypto";
-import type { CreateOrganizationInput, UpdateOrganizationInput } from "@devflow/shared";
+import type {
+  CreateOrganizationInput,
+  PaginationQuery,
+  UpdateOrganizationInput,
+} from "@devflow/shared";
 import { Prisma } from "@prisma/client";
+import { toCursorArgs, toPage } from "../lib/pagination.js";
 import { prisma } from "../lib/prisma.js";
 import { HttpError } from "../middleware/error.middleware.js";
 
@@ -88,15 +93,17 @@ export async function createOrganization(userId: string, input: CreateOrganizati
   }
 }
 
-export async function listOrganizationsForUser(userId: string) {
-  const memberships = await prisma.organizationMember.findMany({
+export async function listOrganizationsForUser(userId: string, pagination: PaginationQuery = {}) {
+  // Cursor on the membership row id (the unique entity we page over); the
+  // resulting `nextCursor` is opaque to clients.
+  const rows = await prisma.organizationMember.findMany({
     where: {
       userId,
     },
-    orderBy: {
-      createdAt: "asc",
-    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    ...toCursorArgs(pagination),
     select: {
+      id: true,
       role: true,
       organization: {
         select: organizationSelect,
@@ -104,10 +111,15 @@ export async function listOrganizationsForUser(userId: string) {
     },
   });
 
-  return memberships.map((membership) => ({
-    ...membership.organization,
-    role: membership.role,
-  }));
+  const page = toPage(rows, pagination);
+
+  return {
+    items: page.items.map((membership) => ({
+      ...membership.organization,
+      role: membership.role,
+    })),
+    nextCursor: page.nextCursor,
+  };
 }
 
 export async function getOrganizationById(organizationId: string) {
@@ -153,23 +165,30 @@ export async function updateOrganization(organizationId: string, input: UpdateOr
   }
 }
 
-export async function listOrganizationMembers(organizationId: string) {
-  const members = await prisma.organizationMember.findMany({
+export async function listOrganizationMembers(
+  organizationId: string,
+  pagination: PaginationQuery = {},
+) {
+  const rows = await prisma.organizationMember.findMany({
     where: {
       organizationId,
     },
-    orderBy: {
-      createdAt: "asc",
-    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    ...toCursorArgs(pagination),
     select: memberSelect,
   });
 
-  return members.map((member) => ({
-    id: member.id,
-    role: member.role,
-    joinedAt: member.createdAt,
-    user: member.user,
-  }));
+  const page = toPage(rows, pagination);
+
+  return {
+    items: page.items.map((member) => ({
+      id: member.id,
+      role: member.role,
+      joinedAt: member.createdAt,
+      user: member.user,
+    })),
+    nextCursor: page.nextCursor,
+  };
 }
 
 export async function removeOrganizationMember(organizationId: string, memberId: string) {
