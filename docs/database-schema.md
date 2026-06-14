@@ -61,7 +61,7 @@ organization, and an organization has many projects (`Organization.projects`).
 - `organizationId` is the required owning organization. The foreign key cascades on delete, so
   deleting an organization removes its projects.
 - `createdById` records the user who created the project. It is optional and uses `onDelete:
-  SetNull`, so a project survives (and keeps its history) even if its creator's account is later
+SetNull`, so a project survives (and keeps its history) even if its creator's account is later
   removed. The reverse relation is `User.createdProjects`.
 - `name` is required; `description` is optional.
 - `archivedAt` enables soft-archiving. The delete endpoint sets this timestamp instead of removing
@@ -74,6 +74,34 @@ Projects do not have their own membership model. Authorization reuses `Organizat
 caller's access to a project is determined by their role in the organization that owns it. This
 keeps the permission model simple and consistent, and the same approach will extend to tasks, which
 are scoped to projects.
+
+## Tasks
+
+`Task` is a work item inside a project. Every task belongs to exactly one project, and a project has
+many tasks (`Project.tasks`).
+
+- `projectId` is the required owning project. The foreign key cascades on delete, so deleting (or
+  hard-removing) a project removes its tasks.
+- `reporterId` records the user who created the task (relation `User.reportedTasks`,
+  `Task.reporter`). It is optional and uses `onDelete: SetNull`, so a task survives even if its
+  creator's account is later removed. DevFlow models the task's creator as its "reporter"; the
+  Tasks API sets this to the authenticated user on creation.
+- `assigneeId` is the optional user the task is assigned to (relation `User.assignedTasks`,
+  `Task.assignee`), also `onDelete: SetNull`. The API verifies an assignee belongs to the task's
+  organization before saving, so tasks can never be assigned to outsiders.
+- `title` is required; `description` is optional.
+- `status` (`TaskStatus`) and `priority` (`TaskPriority`) default to `TODO` and `MEDIUM`.
+- `dueDate` is optional.
+- `archivedAt` enables soft-archiving, matching the `Project` pattern. The delete endpoint sets this
+  timestamp instead of removing the row, and listings exclude archived tasks by default, keeping a
+  task (and its comments) recoverable.
+- `@@index([projectId, status])` keeps per-project, status-filtered listings fast;
+  `@@index([assigneeId])` and `@@index([reporterId])` support "assigned to me" / "reported by me"
+  lookups.
+
+Like projects, tasks have no membership model of their own. Authorization reuses
+`OrganizationMember`: a caller's access to a task is determined by their role in the organization
+that owns the task's project (task → project → organization).
 
 ## Enums
 

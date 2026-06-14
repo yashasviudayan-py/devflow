@@ -9,6 +9,7 @@ import {
   requireProjectOrganizationMember,
   requireProjectOrganizationRole,
 } from "../middleware/project.middleware.js";
+import { projectTaskRouter } from "./task.routes.js";
 
 /**
  * Organization-scoped project routes. Mounted under
@@ -31,6 +32,9 @@ organizationProjectRouter.get("/", requireOrganizationMember, list);
 export const projectRouter = Router();
 
 projectRouter.use(requireAuth);
+
+// Task routes nested under a project. `requireAuth` above applies to them too.
+projectRouter.use("/:projectId/tasks", projectTaskRouter);
 
 projectRouter.get("/:projectId", requireProjectOrganizationMember, getOne);
 projectRouter.patch("/:projectId", requireProjectOrganizationRole(["OWNER", "ADMIN"]), update);
