@@ -183,13 +183,13 @@ Projects live inside organizations, so authorization is derived entirely from th
 membership in the owning organization — there is no separate project membership. All project
 routes require an authenticated user.
 
-| Method | Route                                       | Access                |
-| ------ | ------------------------------------------- | --------------------- |
-| POST   | `/organizations/:organizationId/projects`   | OWNER, ADMIN, MEMBER  |
-| GET    | `/organizations/:organizationId/projects`   | Member (any role)     |
-| GET    | `/projects/:projectId`                      | Member of owning org  |
-| PATCH  | `/projects/:projectId`                      | OWNER or ADMIN        |
-| DELETE | `/projects/:projectId`                      | OWNER or ADMIN        |
+| Method | Route                                     | Access               |
+| ------ | ----------------------------------------- | -------------------- |
+| POST   | `/organizations/:organizationId/projects` | OWNER, ADMIN, MEMBER |
+| GET    | `/organizations/:organizationId/projects` | Member (any role)    |
+| GET    | `/projects/:projectId`                    | Member of owning org |
+| PATCH  | `/projects/:projectId`                    | OWNER or ADMIN       |
+| DELETE | `/projects/:projectId`                    | OWNER or ADMIN       |
 
 The create and list routes are nested under the organization, so the existing
 `requireOrganizationMember` / `requireOrganizationRole` middleware applies directly. The
@@ -235,11 +235,84 @@ by default.
 `DELETE /projects/:projectId` soft-archives the project (sets `archivedAt`) rather than hard-deleting
 it, so the project and its future tasks remain recoverable. Responds with `{ "success": true }`.
 
+## Task Routes
+
+Tasks live inside projects, which live inside organizations. Authorization is derived entirely from
+the caller's membership in the organization that owns the task's project — there is no separate task
+or project membership. All task routes require an authenticated user.
+
+| Method | Route                        | Access               |
+| ------ | ---------------------------- | -------------------- |
+| POST   | `/projects/:projectId/tasks` | OWNER, ADMIN, MEMBER |
+| GET    | `/projects/:projectId/tasks` | Member (any role)    |
+| GET    | `/tasks/:taskId`             | Member of owning org |
+| PATCH  | `/tasks/:taskId`             | OWNER, ADMIN, MEMBER |
+| DELETE | `/tasks/:taskId`             | OWNER, ADMIN, MEMBER |
+
+The create and list routes are nested under the project, so the existing
+`requireProjectOrganizationMember` / `requireProjectOrganizationRole` middleware applies directly.
+The `/tasks/:taskId` routes resolve the owning organization from the task (task → project →
+organization), then run the same membership/role checks through `requireTaskOrganizationMember` /
+`requireTaskOrganizationRole`. When the task does not exist **or** the caller is not a member of its
+organization, the API responds with `404` so it never leaks the existence of inaccessible tasks.
+
+`VIEWER` is a read-only role: viewers can list and read tasks but cannot create, update, or archive
+them. Those write actions require an active role (`OWNER`, `ADMIN`, or `MEMBER`), mirroring the
+project model. Tasks are day-to-day work items, so any active member can manage them.
+
+`POST /projects/:projectId/tasks` validates request bodies with `createTaskSchema` (`title`
+required; `description`, `status`, `priority`, `assigneeId`, and `dueDate` optional). The
+authenticated user is recorded as the task `reporter` (creator). When `assigneeId` is provided, it
+must belong to the same organization, otherwise the API responds with `400`. Responds with `201`:
+
+```json
+{
+  "task": {
+    "id": "clx...",
+    "projectId": "clx...",
+    "reporterId": "clx...",
+    "assigneeId": null,
+    "title": "Ship the tasks API",
+    "description": "Implement CRUD endpoints.",
+    "status": "TODO",
+    "priority": "HIGH",
+    "dueDate": null,
+    "archivedAt": null,
+    "createdAt": "2026-06-15T00:00:00.000Z",
+    "updatedAt": "2026-06-15T00:00:00.000Z",
+    "assignee": null,
+    "reporter": { "id": "clx...", "name": "Yashasvi Udayan", "email": "yashasvi@example.com" }
+  }
+}
+```
+
+Nested `assignee` and `reporter` objects expose only `id`, `name`, and `email`. `passwordHash` is
+never returned.
+
+`GET /projects/:projectId/tasks` returns `{ "tasks": [...], "nextCursor": ... }` for members and
+accepts the shared `limit`/`cursor` pagination parameters. Archived tasks are excluded by default.
+Optional query filters (validated with `taskFilterSchema`) narrow the results:
+
+- `status` — one of `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`, `CANCELED`
+- `priority` — one of `LOW`, `MEDIUM`, `HIGH`, `URGENT`
+- `assigneeId` — tasks assigned to a specific user
+
+Example: `GET /projects/:projectId/tasks?status=IN_PROGRESS&priority=HIGH`. An invalid filter value
+responds with `400`.
+
+`GET /tasks/:taskId` returns `{ "task": { ... } }` for members of the owning organization.
+
+`PATCH /tasks/:taskId` validates request bodies with `updateTaskSchema` (`title`, `description`,
+`status`, `priority`, `assigneeId`, `dueDate`, and/or `archived`; at least one required). Sending
+`assigneeId: null` unassigns the task and `dueDate: null` clears the due date; a non-null
+`assigneeId` must belong to the organization. Sending `{ "archived": false }` restores an archived
+task. Returns the updated task.
+
+`DELETE /tasks/:taskId` soft-archives the task (sets `archivedAt`) rather than hard-deleting it, so
+the task and its comments remain recoverable. Responds with `{ "success": true }`.
+
 ## Future Route Ideas
 
 | Method | Route                     | Purpose                 |
 | ------ | ------------------------- | ----------------------- |
-| GET    | `/tasks`                  | List tasks              |
-| POST   | `/tasks`                  | Create a task           |
-| PATCH  | `/tasks/:taskId`          | Update one task         |
 | POST   | `/tasks/:taskId/comments` | Add a comment to a task |
