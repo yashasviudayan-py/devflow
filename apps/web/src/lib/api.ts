@@ -1,4 +1,11 @@
-import type { CreateOrganizationInput, LoginInput, SignupInput, UserRole } from "@devflow/shared";
+import type {
+  CreateOrganizationInput,
+  CreateProjectInput,
+  LoginInput,
+  SignupInput,
+  UpdateProjectInput,
+  UserRole,
+} from "@devflow/shared";
 
 export type AuthUser = {
   id: string;
@@ -17,6 +24,18 @@ export type Organization = {
 
 export type OrganizationWithRole = Organization & {
   role: UserRole;
+};
+
+export type Project = {
+  id: string;
+  organizationId: string;
+  createdById: string;
+  name: string;
+  // The API stores description as a nullable column, so it can come back as null.
+  description: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type OrganizationMember = {
@@ -143,4 +162,52 @@ export async function getOrganizationMembers(
   );
 
   return data.members;
+}
+
+export async function getOrganizationProjects(organizationId: string): Promise<Project[]> {
+  const data = await request<{ projects: Project[] }>(
+    `/organizations/${organizationId}/projects`,
+  );
+
+  return data.projects;
+}
+
+export async function createProject(
+  organizationId: string,
+  input: CreateProjectInput,
+): Promise<Project> {
+  const data = await request<{ project: Project }>(
+    `/organizations/${organizationId}/projects`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+
+  return data.project;
+}
+
+export async function getProject(projectId: string): Promise<Project> {
+  const data = await request<{ project: Project }>(`/projects/${projectId}`);
+
+  return data.project;
+}
+
+export async function updateProject(
+  projectId: string,
+  input: UpdateProjectInput,
+): Promise<Project> {
+  const data = await request<{ project: Project }>(`/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+
+  return data.project;
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  // The API soft-archives on DELETE and responds with { success: true }.
+  await request<{ success: boolean }>(`/projects/${projectId}`, {
+    method: "DELETE",
+  });
 }

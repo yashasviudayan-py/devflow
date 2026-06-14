@@ -120,6 +120,26 @@ the stored organization disappears, the dashboard falls back to your first organ
 To test manually: sign up or log in, open `/dashboard`, create an organization, confirm it
 appears with the **Active** badge, then open it to see yourself listed as `OWNER`.
 
+## Projects in the Web App
+
+The project pages live at:
+
+- `http://localhost:3000/organizations/<id>` — the organization detail page now lists the
+  organization's projects (with an empty state) alongside its members
+- `http://localhost:3000/organizations/<id>/projects/new` — create a project (name required,
+  description optional); on success it redirects to the new project's detail page
+- `http://localhost:3000/projects/<id>` — project details, including the owning organization,
+  created/updated timestamps, and a placeholder for tasks (added in a later phase)
+
+Project authorization is derived from the caller's organization role. The project endpoints
+do not return the role, so the detail page loads the owning organization to learn it. `OWNER`
+and `ADMIN` see **Edit** and **Archive** controls; `VIEWER` cannot create projects. Archiving
+soft-archives the project (the API sets `archivedAt`) and redirects back to the organization.
+
+To test manually: open an organization, confirm the empty project state, create a project,
+confirm the redirect to its detail page, return to the organization, and confirm it appears
+in the project list.
+
 ## Quality Checks
 
 Run these before opening a pull request:
