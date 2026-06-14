@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { taskPriorities, taskStatuses } from "./types.js";
 
 const authEmailSchema = z
   .string()
@@ -56,6 +57,58 @@ export const updateProjectSchema = z
     },
   );
 
+const taskTitleSchema = z
+  .string()
+  .trim()
+  .min(1, "Task title is required.")
+  .max(200, "Task title must be at most 200 characters.");
+
+const taskDescriptionSchema = z
+  .string()
+  .trim()
+  .max(5000, "Task description must be at most 5000 characters.");
+
+const taskStatusSchema = z.enum(taskStatuses);
+const taskPrioritySchema = z.enum(taskPriorities);
+
+// Assignee/filter ids are validated for shape only; whether the id refers to a
+// real organization member is enforced server-side, where the org is known.
+const taskUserIdSchema = z.string().trim().min(1, "User id is required.");
+
+// `z.coerce.date()` accepts ISO date strings from JSON bodies and yields a Date.
+const taskDueDateSchema = z.coerce.date();
+
+export const createTaskSchema = z.object({
+  title: taskTitleSchema,
+  description: taskDescriptionSchema.optional(),
+  status: taskStatusSchema.optional(),
+  priority: taskPrioritySchema.optional(),
+  assigneeId: taskUserIdSchema.optional(),
+  dueDate: taskDueDateSchema.optional(),
+});
+
+export const updateTaskSchema = z
+  .object({
+    title: taskTitleSchema.optional(),
+    // `null` clears the field; `undefined` leaves it unchanged.
+    description: taskDescriptionSchema.nullable().optional(),
+    status: taskStatusSchema.optional(),
+    priority: taskPrioritySchema.optional(),
+    assigneeId: taskUserIdSchema.nullable().optional(),
+    dueDate: taskDueDateSchema.nullable().optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine((input) => Object.values(input).some((value) => value !== undefined), {
+    message: "At least one field must be provided.",
+  });
+
+// Optional query filters for listing a project's tasks. Unknown keys are stripped.
+export const taskFilterSchema = z.object({
+  status: taskStatusSchema.optional(),
+  priority: taskPrioritySchema.optional(),
+  assigneeId: taskUserIdSchema.optional(),
+});
+
 const organizationNameSchema = z
   .string()
   .trim()
@@ -93,3 +146,6 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
+export type CreateTaskInput = z.infer<typeof createTaskSchema>;
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+export type TaskFilterInput = z.infer<typeof taskFilterSchema>;
