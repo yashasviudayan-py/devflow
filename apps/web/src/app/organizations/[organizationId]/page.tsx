@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MemberList } from "@/components/MemberList";
+import { ProjectList } from "@/components/ProjectList";
 import {
   clearActiveOrganizationId,
   getStoredActiveOrganizationId,
@@ -12,8 +13,10 @@ import {
   ApiError,
   getOrganization,
   getOrganizationMembers,
+  getOrganizationProjects,
   type OrganizationMember,
   type OrganizationWithRole,
+  type Project,
 } from "@/lib/api";
 import { useRequireUser } from "@/lib/useRequireUser";
 
@@ -22,6 +25,7 @@ export default function OrganizationDetailPage() {
   const user = useRequireUser();
   const [organization, setOrganization] = useState<OrganizationWithRole | null>(null);
   const [members, setMembers] = useState<OrganizationMember[] | null>(null);
+  const [projects, setProjects] = useState<Project[] | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,14 +36,19 @@ export default function OrganizationDetailPage() {
 
     let isActive = true;
 
-    Promise.all([getOrganization(organizationId), getOrganizationMembers(organizationId)])
-      .then(([loadedOrganization, loadedMembers]) => {
+    Promise.all([
+      getOrganization(organizationId),
+      getOrganizationMembers(organizationId),
+      getOrganizationProjects(organizationId),
+    ])
+      .then(([loadedOrganization, loadedMembers, loadedProjects]) => {
         if (!isActive) {
           return;
         }
 
         setOrganization(loadedOrganization);
         setMembers(loadedMembers);
+        setProjects(loadedProjects);
       })
       .catch((caught: unknown) => {
         if (!isActive) {
@@ -72,6 +81,8 @@ export default function OrganizationDetailPage() {
   }
 
   const canEdit = organization?.role === "OWNER" || organization?.role === "ADMIN";
+  // VIEWER is read-only; everyone else may create projects (matches the API).
+  const canCreateProject = organization?.role !== "VIEWER";
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -114,6 +125,31 @@ export default function OrganizationDetailPage() {
                 </button>
               ) : null}
             </header>
+
+            <section className="mt-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Projects</h2>
+                {canCreateProject && projects && projects.length > 0 ? (
+                  <Link
+                    href={`/organizations/${organization.id}/projects/new`}
+                    className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
+                  >
+                    New project
+                  </Link>
+                ) : null}
+              </div>
+              <div className="mt-4">
+                {projects === null ? (
+                  <p className="text-sm text-neutral-500">Loading projects…</p>
+                ) : (
+                  <ProjectList
+                    projects={projects}
+                    organizationId={organization.id}
+                    canCreate={canCreateProject}
+                  />
+                )}
+              </div>
+            </section>
 
             <section className="mt-8 rounded-md border border-neutral-200 bg-white p-6">
               <h2 className="text-lg font-semibold">Members</h2>
