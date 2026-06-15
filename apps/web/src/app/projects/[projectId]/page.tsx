@@ -1,16 +1,23 @@
 "use client";
 
+import type { TaskFilterInput } from "@devflow/shared";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { EditProjectForm } from "@/components/EditProjectForm";
+import { TaskFilters } from "@/components/TaskFilters";
+import { EmptyTasksState, TaskList } from "@/components/TaskList";
 import {
   ApiError,
   deleteProject,
   getOrganization,
+  getOrganizationMembers,
   getProject,
+  getProjectTasks,
+  type OrganizationMember,
   type OrganizationWithRole,
   type Project,
+  type Task,
 } from "@/lib/api";
 import { useRequireUser } from "@/lib/useRequireUser";
 
@@ -32,6 +39,11 @@ export default function ProjectDetailPage() {
   // We load the owning organization to show its name and to learn the caller's
   // role, since the project endpoints don't return either.
   const [organization, setOrganization] = useState<OrganizationWithRole | null>(null);
+  // Members power the assignee filter (and let us show names instead of ids).
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [tasks, setTasks] = useState<Task[] | null>(null);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<TaskFilterInput>({});
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,16 +59,20 @@ export default function ProjectDetailPage() {
 
     getProject(projectId)
       .then(async (loadedProject) => {
-        const loadedOrganization = await getOrganization(loadedProject.organizationId);
-        return { loadedProject, loadedOrganization };
+        const [loadedOrganization, loadedMembers] = await Promise.all([
+          getOrganization(loadedProject.organizationId),
+          getOrganizationMembers(loadedProject.organizationId),
+        ]);
+        return { loadedProject, loadedOrganization, loadedMembers };
       })
-      .then(({ loadedProject, loadedOrganization }) => {
+      .then(({ loadedProject, loadedOrganization, loadedMembers }) => {
         if (!isActive) {
           return;
         }
 
         setProject(loadedProject);
         setOrganization(loadedOrganization);
+        setMembers(loadedMembers);
       })
       .catch((caught: unknown) => {
         if (!isActive) {
@@ -76,6 +92,33 @@ export default function ProjectDetailPage() {
       isActive = false;
     };
   }, [user, projectId]);
+
+  // Tasks are fetched separately so changing a filter re-queries the API
+  // (which does the filtering) without reloading the rest of the page.
+  useEffect(() => {
+    if (!user || !projectId) {
+      return;
+    }
+
+    let isActive = true;
+    setTasksError(null);
+
+    getProjectTasks(projectId, filters)
+      .then((loadedTasks) => {
+        if (isActive) {
+          setTasks(loadedTasks);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setTasksError("Could not load tasks. Please try again.");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user, projectId, filters]);
 
   async function handleArchive() {
     if (!project) {
@@ -114,6 +157,9 @@ export default function ProjectDetailPage() {
 
   // Only OWNER/ADMIN can edit or archive, mirroring the API authorization.
   const canManage = organization?.role === "OWNER" || organization?.role === "ADMIN";
+  // VIEWER is read-only; everyone else may create tasks (matches the API).
+  const canCreateTask = organization ? organization.role !== "VIEWER" : false;
+  const isFiltered = Boolean(filters.status || filters.priority || filters.assigneeId);
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -221,11 +267,43 @@ export default function ProjectDetailPage() {
               </dl>
             </section>
 
-            <section className="mt-6 rounded-md border border-dashed border-neutral-300 bg-white px-6 py-10 text-center">
-              <h2 className="text-base font-semibold text-neutral-950">Tasks</h2>
-              <p className="mt-2 text-sm text-neutral-600">
-                Tasks will be added in the next phase.
-              </p>
+            <section className="mt-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Tasks</h2>
+                {canCreateTask && tasks && tasks.length > 0 ? (
+                  <Link
+                    href={`/projects/${project.id}/tasks/new`}
+                    className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
+                  >
+                    New task
+                  </Link>
+                ) : null}
+              </div>
+
+              {/* Filters only help once there is something to filter. */}
+              {tasks && (tasks.length > 0 || isFiltered) ? (
+                <div className="mt-4">
+                  <TaskFilters filters={filters} members={members} onChange={setFilters} />
+                </div>
+              ) : null}
+
+              <div className="mt-4">
+                {tasksError ? (
+                  <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {tasksError}
+                  </p>
+                ) : tasks === null ? (
+                  <p className="text-sm text-neutral-500">Loading tasks…</p>
+                ) : tasks.length === 0 ? (
+                  <EmptyTasksState
+                    projectId={project.id}
+                    canCreate={canCreateTask}
+                    isFiltered={isFiltered}
+                  />
+                ) : (
+                  <TaskList tasks={tasks} />
+                )}
+              </div>
             </section>
           </>
         )}
