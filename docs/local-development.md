@@ -129,7 +129,7 @@ The project pages live at:
 - `http://localhost:3000/organizations/<id>/projects/new` — create a project (name required,
   description optional); on success it redirects to the new project's detail page
 - `http://localhost:3000/projects/<id>` — project details, including the owning organization,
-  created/updated timestamps, and a placeholder for tasks (added in a later phase)
+  created/updated timestamps, and the project's tasks (with filters and an empty state)
 
 Project authorization is derived from the caller's organization role. The project endpoints
 do not return the role, so the detail page loads the owning organization to learn it. `OWNER`
@@ -139,6 +139,29 @@ soft-archives the project (the API sets `archivedAt`) and redirects back to the 
 To test manually: open an organization, confirm the empty project state, create a project,
 confirm the redirect to its detail page, return to the organization, and confirm it appears
 in the project list.
+
+## Tasks in the Web App
+
+The task pages live at:
+
+- `http://localhost:3000/projects/<id>` — the project detail page lists the project's tasks
+  (with an empty state) and offers status / priority / assignee filters
+- `http://localhost:3000/projects/<id>/tasks/new` — create a task (title required; description,
+  status, priority, assignee, and due date optional); on success it redirects to the new task's
+  detail page
+- `http://localhost:3000/tasks/<id>` — task details (status, priority, assignee, creator, due
+  date, timestamps), an inline edit form, an **Archive** control, and a placeholder for comments
+
+Task authorization is derived from the caller's organization role, resolved through the owning
+project (task → project → organization). `OWNER`, `ADMIN`, and `MEMBER` may create, edit, and
+archive tasks; `VIEWER` is read-only. The assignee dropdown is populated from the organization's
+members; "Unassigned" is allowed. Archiving soft-archives the task (the API sets `archivedAt`) and
+redirects back to the project. Inaccessible or missing tasks return `404`, shown as a clean
+not-found message.
+
+To test manually: open a project, confirm the empty task state, create a task, confirm the
+redirect to its detail page, return to the project, confirm the task appears in the list, then
+edit its fields and archive it.
 
 ## Quality Checks
 
