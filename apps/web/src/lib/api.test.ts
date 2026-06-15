@@ -11,10 +11,15 @@ import {
   getOrganizationProjects,
   getOrganizations,
   getProject,
+  getProjectTasks,
+  getTask,
+  createTask,
+  deleteTask,
   login,
   logout,
   signup,
   updateProject,
+  updateTask,
 } from "./api";
 
 const testUser = {
@@ -33,6 +38,23 @@ const testProject = {
   archivedAt: null,
   createdAt: "2026-06-08T00:00:00.000Z",
   updatedAt: "2026-06-08T00:00:00.000Z",
+};
+
+const testTask = {
+  id: "task-1",
+  projectId: "project-1",
+  reporterId: "user-1",
+  assigneeId: null,
+  title: "Ship the tasks UI",
+  description: "Build the frontend.",
+  status: "TODO" as const,
+  priority: "HIGH" as const,
+  dueDate: null,
+  archivedAt: null,
+  createdAt: "2026-06-08T00:00:00.000Z",
+  updatedAt: "2026-06-08T00:00:00.000Z",
+  assignee: null,
+  reporter: { id: "user-1", name: "Test User", email: "test@example.com" },
 };
 
 const testOrganization = {
@@ -314,5 +336,98 @@ describe("project api client", () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).statusCode).toBe(403);
+  });
+});
+
+describe("task api client", () => {
+  it("lists a project's tasks with credentials included", async () => {
+    const fetchMock = mockFetchResponse(200, { tasks: [testTask], nextCursor: null });
+
+    const tasks = await getProjectTasks("project-1");
+
+    expect(tasks).toEqual([testTask]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/projects/project-1/tasks",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("forwards only the filters that are set as query params", async () => {
+    const fetchMock = mockFetchResponse(200, { tasks: [], nextCursor: null });
+
+    await getProjectTasks("project-1", { status: "IN_PROGRESS", assigneeId: "user-2" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/projects/project-1/tasks?status=IN_PROGRESS&assigneeId=user-2",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("creates a task via POST and returns it", async () => {
+    const fetchMock = mockFetchResponse(201, { task: testTask });
+
+    const input = { title: "Ship the tasks UI", priority: "HIGH" as const };
+    const task = await createTask("project-1", input);
+
+    expect(task).toEqual(testTask);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/projects/project-1/tasks",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify(input),
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+      }),
+    );
+  });
+
+  it("fetches a single task", async () => {
+    const fetchMock = mockFetchResponse(200, { task: testTask });
+
+    const task = await getTask("task-1");
+
+    expect(task).toEqual(testTask);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("updates a task via PATCH and returns it", async () => {
+    const updated = { ...testTask, status: "DONE" as const };
+    const fetchMock = mockFetchResponse(200, { task: updated });
+
+    const input = { status: "DONE" as const };
+    const task = await updateTask("task-1", input);
+
+    expect(task).toEqual(updated);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+        body: JSON.stringify(input),
+      }),
+    );
+  });
+
+  it("archives a task via DELETE", async () => {
+    const fetchMock = mockFetchResponse(200, { success: true });
+
+    await deleteTask("task-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1",
+      expect.objectContaining({ method: "DELETE", credentials: "include" }),
+    );
+  });
+
+  it("surfaces a 404 for an inaccessible task", async () => {
+    mockFetchResponse(404, { error: { message: "Task not found", statusCode: 404 } });
+
+    const error = await getTask("task-x").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(404);
   });
 });
