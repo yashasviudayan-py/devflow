@@ -1,9 +1,14 @@
 import type {
   CreateOrganizationInput,
   CreateProjectInput,
+  CreateTaskInput,
   LoginInput,
   SignupInput,
+  TaskFilterInput,
+  TaskPriority,
+  TaskStatus,
   UpdateProjectInput,
+  UpdateTaskInput,
   UserRole,
 } from "@devflow/shared";
 
@@ -47,6 +52,33 @@ export type OrganizationMember = {
     name: string;
     email: string;
   };
+};
+
+// Nested assignee/reporter objects expose only safe, public fields — the API
+// never returns passwordHash or other sensitive user data.
+export type TaskUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type Task = {
+  id: string;
+  projectId: string;
+  reporterId: string;
+  // Nullable columns can come back as null from the API.
+  assigneeId: string | null;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // The creator (reporter) is always present; assignee is null when unassigned.
+  assignee: TaskUser | null;
+  reporter: TaskUser | null;
 };
 
 export class ApiError extends Error {
@@ -208,6 +240,64 @@ export async function updateProject(
 export async function deleteProject(projectId: string): Promise<void> {
   // The API soft-archives on DELETE and responds with { success: true }.
   await request<{ success: boolean }>(`/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getProjectTasks(
+  projectId: string,
+  filters: TaskFilterInput = {},
+): Promise<Task[]> {
+  // The API validates these filter values; we only forward the ones that are set.
+  const params = new URLSearchParams();
+  if (filters.status) {
+    params.set("status", filters.status);
+  }
+  if (filters.priority) {
+    params.set("priority", filters.priority);
+  }
+  if (filters.assigneeId) {
+    params.set("assigneeId", filters.assigneeId);
+  }
+
+  const query = params.toString();
+  // The list endpoint is paginated; the UI shows the first page for now.
+  const data = await request<{ tasks: Task[]; nextCursor: string | null }>(
+    `/projects/${projectId}/tasks${query ? `?${query}` : ""}`,
+  );
+
+  return data.tasks;
+}
+
+export async function createTask(projectId: string, input: CreateTaskInput): Promise<Task> {
+  // `dueDate` is a Date after schema parsing; JSON.stringify serialises it to an
+  // ISO string, which the API coerces back to a Date.
+  const data = await request<{ task: Task }>(`/projects/${projectId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return data.task;
+}
+
+export async function getTask(taskId: string): Promise<Task> {
+  const data = await request<{ task: Task }>(`/tasks/${taskId}`);
+
+  return data.task;
+}
+
+export async function updateTask(taskId: string, input: UpdateTaskInput): Promise<Task> {
+  const data = await request<{ task: Task }>(`/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+
+  return data.task;
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  // The API soft-archives on DELETE and responds with { success: true }.
+  await request<{ success: boolean }>(`/tasks/${taskId}`, {
     method: "DELETE",
   });
 }
