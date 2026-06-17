@@ -270,14 +270,24 @@ export default function ProjectDetailPage() {
             <section className="mt-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Tasks</h2>
-                {canCreateTask && tasks && tasks.length > 0 ? (
-                  <Link
-                    href={`/projects/${project.id}/tasks/new`}
-                    className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
-                  >
-                    New task
-                  </Link>
-                ) : null}
+                <div className="flex items-center gap-2">
+                  {tasks && tasks.length > 0 ? (
+                    <Link
+                      href={`/projects/${project.id}/board`}
+                      className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+                    >
+                      Board view
+                    </Link>
+                  ) : null}
+                  {canCreateTask && tasks && tasks.length > 0 ? (
+                    <Link
+                      href={`/projects/${project.id}/tasks/new`}
+                      className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
+                    >
+                      New task
+                    </Link>
+                  ) : null}
+                </div>
               </div>
 
               {/* Filters only help once there is something to filter. */}
