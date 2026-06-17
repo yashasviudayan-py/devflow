@@ -163,6 +163,28 @@ To test manually: open a project, confirm the empty task state, create a task, c
 redirect to its detail page, return to the project, confirm the task appears in the list, then
 edit its fields and archive it.
 
+## Kanban Board in the Web App
+
+The board lives at:
+
+- `http://localhost:3000/projects/<id>/board` — project tasks grouped into four columns (**Todo**,
+  **In Progress**, **In Review**, **Done**), each showing a task count, cards, and an empty state.
+  Reachable via the **Board view** link in the project page's Tasks section.
+
+Each card shows the title (linking to `/tasks/<id>`), priority, assignee, and due date. Members
+move a task with the per-card status dropdown, which calls `PATCH /tasks/<id>` with the new
+status. The board shows the first page of tasks (the list endpoint is paginated, default 20),
+matching the project task list. Tasks with the `CANCELED` status have no column and are not shown.
+
+Moves are optimistic: the card jumps to its new column immediately, then reconciles with the API
+response. If the request fails the card rolls back to its previous column and a friendly error is
+shown — `401` redirects to `/login`, `403` shows a permission error, `404` asks the user to
+refresh. `OWNER`, `ADMIN`, and `MEMBER` may move tasks; `VIEWER` sees a read-only board.
+
+To test manually: open a project with tasks in different statuses, open **Board view**, confirm
+tasks land in the correct columns, move a task between columns, refresh to confirm the change
+persisted, and open a card to reach its detail page.
+
 ## Quality Checks
 
 Run these before opening a pull request:
