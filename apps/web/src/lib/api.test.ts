@@ -20,6 +20,7 @@ import {
   signup,
   updateProject,
   updateTask,
+  updateTaskStatus,
 } from "./api";
 
 const testUser = {
@@ -409,6 +410,34 @@ describe("task api client", () => {
         body: JSON.stringify(input),
       }),
     );
+  });
+
+  it("updates only the status via updateTaskStatus", async () => {
+    const updated = { ...testTask, status: "IN_PROGRESS" as const };
+    const fetchMock = mockFetchResponse(200, { task: updated });
+
+    const task = await updateTaskStatus("task-1", "IN_PROGRESS");
+
+    expect(task).toEqual(updated);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+        body: JSON.stringify({ status: "IN_PROGRESS" }),
+      }),
+    );
+  });
+
+  it("surfaces a 403 when a viewer tries to move a task", async () => {
+    mockFetchResponse(403, {
+      error: { message: "You do not have permission to perform this action.", statusCode: 403 },
+    });
+
+    const error = await updateTaskStatus("task-1", "DONE").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(403);
   });
 
   it("archives a task via DELETE", async () => {

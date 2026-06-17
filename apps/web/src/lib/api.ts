@@ -295,6 +295,12 @@ export async function updateTask(taskId: string, input: UpdateTaskInput): Promis
   return data.task;
 }
 
+// Convenience wrapper for the Kanban board, which only ever changes status.
+// Delegates to updateTask so the PATCH /tasks/:taskId behaviour stays in one place.
+export async function updateTaskStatus(taskId: string, status: TaskStatus): Promise<Task> {
+  return updateTask(taskId, { status });
+}
+
 export async function deleteTask(taskId: string): Promise<void> {
   // The API soft-archives on DELETE and responds with { success: true }.
   await request<{ success: boolean }>(`/tasks/${taskId}`, {
