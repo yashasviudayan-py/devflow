@@ -125,6 +125,28 @@ export async function createTask(
   };
 }
 
+export async function createComment(
+  cookies: string[],
+  taskId: string,
+  body: Record<string, unknown> = { body: "First comment" },
+) {
+  const app = await getApp();
+  const response = await request(app)
+    .post(`/tasks/${taskId}/comments`)
+    .set("Cookie", cookies)
+    .send(body);
+
+  expect(response.status).toBe(201);
+
+  return response.body.comment as {
+    id: string;
+    taskId: string;
+    authorId: string | null;
+    body: string;
+    author: { id: string; name: string; email: string } | null;
+  };
+}
+
 // Adds an existing user to an organization with a given role. There is no public
 // "add member" endpoint yet, so tests seed memberships directly.
 export async function addMember(organizationId: string, userId: string, role: UserRole) {

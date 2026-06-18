@@ -4,6 +4,7 @@ import express from "express";
 import { env } from "./config/env.js";
 import { errorMiddleware, notFoundMiddleware } from "./middleware/error.middleware.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { commentRouter } from "./routes/comment.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { organizationRouter } from "./routes/organization.routes.js";
 import { projectRouter } from "./routes/project.routes.js";
@@ -25,6 +26,7 @@ app.use("/health", healthRouter);
 app.use("/organizations", organizationRouter);
 app.use("/projects", projectRouter);
 app.use("/tasks", taskRouter);
+app.use("/comments", commentRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

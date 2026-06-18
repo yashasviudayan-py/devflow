@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  createCommentSchema,
   createOrganizationSchema,
   createProjectSchema,
   createTaskSchema,
   loginSchema,
   signupSchema,
   taskFilterSchema,
+  updateCommentSchema,
   updateOrganizationSchema,
   updateProjectSchema,
   updateTaskSchema,
@@ -169,6 +171,34 @@ describe("taskFilterSchema", () => {
 
   it("rejects an invalid status filter", () => {
     expect(() => taskFilterSchema.parse({ status: "NOPE" })).toThrow();
+  });
+});
+
+describe("createCommentSchema", () => {
+  it("accepts a comment and trims surrounding whitespace", () => {
+    const parsed = createCommentSchema.parse({ body: "  Looks good to me  " });
+
+    expect(parsed).toEqual({ body: "Looks good to me" });
+  });
+
+  it("rejects an empty comment", () => {
+    expect(() => createCommentSchema.parse({ body: "   " })).toThrow();
+  });
+
+  it("rejects a comment that exceeds the maximum length", () => {
+    expect(() => createCommentSchema.parse({ body: "a".repeat(5001) })).toThrow();
+  });
+});
+
+describe("updateCommentSchema", () => {
+  it("accepts an updated comment body", () => {
+    const parsed = updateCommentSchema.parse({ body: "Edited comment" });
+
+    expect(parsed).toEqual({ body: "Edited comment" });
+  });
+
+  it("rejects an empty comment", () => {
+    expect(() => updateCommentSchema.parse({ body: "" })).toThrow();
   });
 });
 

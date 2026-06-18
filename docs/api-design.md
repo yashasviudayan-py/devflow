@@ -311,8 +311,73 @@ task. Returns the updated task.
 `DELETE /tasks/:taskId` soft-archives the task (sets `archivedAt`) rather than hard-deleting it, so
 the task and its comments remain recoverable. Responds with `{ "success": true }`.
 
+## Comment Routes
+
+Comments belong to tasks, which belong to projects, which belong to organizations. Authorization is
+derived entirely from the caller's membership in the organization that owns the comment's task
+(comment → task → project → organization) — there is no separate comment membership. All comment
+routes require an authenticated user.
+
+| Method | Route                        | Access                          |
+| ------ | ---------------------------- | ------------------------------- |
+| POST   | `/tasks/:taskId/comments`    | OWNER, ADMIN, MEMBER            |
+| GET    | `/tasks/:taskId/comments`    | Member (any role)               |
+| PATCH  | `/comments/:commentId`       | Comment author                  |
+| DELETE | `/comments/:commentId`       | Comment author, or OWNER/ADMIN  |
+
+The create and list routes are nested under the task, so the existing
+`requireTaskOrganizationMember` / `requireTaskOrganizationRole` middleware applies directly. The
+`/comments/:commentId` routes resolve the owning organization from the comment, then check
+membership through `requireCommentOrganizationMember`. When the comment does not exist **or** the
+caller is not a member of its organization, the API responds with `404` so it never leaks the
+existence of inaccessible comments.
+
+Commenting is a write action, so posting requires an active role (`OWNER`, `ADMIN`, or `MEMBER`),
+mirroring task creation. `VIEWER` is read-only: viewers can read comments but cannot post them.
+
+Ownership rules layer on top of membership:
+
+- **Editing** a comment is restricted to its author. OWNER/ADMIN cannot edit other members'
+  comments — rewriting someone else's words is different from moderating them. A non-author member
+  receives `403`.
+- **Deleting** a comment is allowed for its author, and additionally for `OWNER`/`ADMIN` as
+  moderators of any comment in their organization. A non-author, non-moderator member receives
+  `403`.
+
+`POST /tasks/:taskId/comments` validates request bodies with `createCommentSchema` (`body`
+required, 1–5000 characters). The authenticated user is recorded as the `author`. Responds with
+`201`:
+
+```json
+{
+  "comment": {
+    "id": "clx...",
+    "taskId": "clx...",
+    "authorId": "clx...",
+    "body": "Looks good to me — shipping it.",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "updatedAt": "2026-06-18T00:00:00.000Z",
+    "author": { "id": "clx...", "name": "Yashasvi Udayan", "email": "yashasvi@example.com" }
+  }
+}
+```
+
+The nested `author` object exposes only `id`, `name`, and `email`. `passwordHash` is never
+returned. (`authorId` and `author` may be `null` if the author's account was later removed, since
+the relation uses `onDelete: SetNull`.)
+
+`GET /tasks/:taskId/comments` returns `{ "comments": [...] }` for members, sorted by `createdAt`
+ascending (with an `id` tiebreaker) so the conversation reads top to bottom.
+
+`PATCH /comments/:commentId` validates request bodies with `updateCommentSchema` (`body` required)
+and returns the updated comment.
+
+`DELETE /comments/:commentId` hard-deletes the comment and responds with `{ "success": true }`.
+Unlike tasks and projects, comments have no soft-delete column, so deletion is permanent. (Deleting
+a task cascades to its comments.)
+
 ## Future Route Ideas
 
-| Method | Route                     | Purpose                 |
-| ------ | ------------------------- | ----------------------- |
-| POST   | `/tasks/:taskId/comments` | Add a comment to a task |
+| Method | Route                              | Purpose                          |
+| ------ | ---------------------------------- | -------------------------------- |
+| POST   | `/tasks/:taskId/comments/:id/...`  | Threaded replies / reactions     |
