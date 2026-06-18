@@ -109,6 +109,22 @@ export const taskFilterSchema = z.object({
   assigneeId: taskUserIdSchema.optional(),
 });
 
+// Comment bodies are free-form text. They are trimmed, must not be empty, and
+// are capped to keep payloads (and the eventual UI) reasonable.
+const commentBodySchema = z
+  .string()
+  .trim()
+  .min(1, "Comment must not be empty.")
+  .max(5000, "Comment must be at most 5000 characters.");
+
+export const createCommentSchema = z.object({
+  body: commentBodySchema,
+});
+
+export const updateCommentSchema = z.object({
+  body: commentBodySchema,
+});
+
 const organizationNameSchema = z
   .string()
   .trim()
@@ -149,3 +165,5 @@ export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type TaskFilterInput = z.infer<typeof taskFilterSchema>;
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;
