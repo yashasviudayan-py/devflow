@@ -1,8 +1,10 @@
 "use client";
 
+import type { UserRole } from "@devflow/shared";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CommentsSection } from "@/components/CommentsSection";
 import { EditTaskForm } from "@/components/EditTaskForm";
 import { TaskPriorityBadge, TaskStatusBadge } from "@/components/TaskBadges";
 import {
@@ -42,7 +44,7 @@ export default function TaskDetailPage() {
   const [task, setTask] = useState<Task | null>(null);
   // The task endpoints don't return the caller's role or the org members, so we
   // resolve them via the owning project (task → project → organization).
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -253,12 +255,12 @@ export default function TaskDetailPage() {
               </dl>
             </section>
 
-            <section className="mt-6 rounded-md border border-dashed border-neutral-300 bg-white px-6 py-10 text-center">
-              <h2 className="text-base font-semibold text-neutral-950">Comments</h2>
-              <p className="mt-2 text-sm text-neutral-600">
-                Comments will be added in a later phase.
-              </p>
-            </section>
+            <CommentsSection
+              taskId={task.id}
+              currentUserId={user.id}
+              role={role}
+              canComment={canManage}
+            />
           </>
         )}
       </div>
