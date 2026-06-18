@@ -150,7 +150,7 @@ The task pages live at:
   status, priority, assignee, and due date optional); on success it redirects to the new task's
   detail page
 - `http://localhost:3000/tasks/<id>` — task details (status, priority, assignee, creator, due
-  date, timestamps), an inline edit form, an **Archive** control, and a placeholder for comments
+  date, timestamps), an inline edit form, an **Archive** control, and the task's comments
 
 Task authorization is derived from the caller's organization role, resolved through the owning
 project (task → project → organization). `OWNER`, `ADMIN`, and `MEMBER` may create, edit, and
@@ -184,6 +184,26 @@ refresh. `OWNER`, `ADMIN`, and `MEMBER` may move tasks; `VIEWER` sees a read-onl
 To test manually: open a project with tasks in different statuses, open **Board view**, confirm
 tasks land in the correct columns, move a task between columns, refresh to confirm the change
 persisted, and open a card to reach its detail page.
+
+## Comments in the Web App
+
+The task detail page (`http://localhost:3000/tasks/<id>`) has a **Comments** section below the
+task details. It fetches `GET /tasks/<id>/comments` and renders comments oldest-first, each card
+showing the author's name and email, the timestamp, the body, and an `edited` marker when the
+comment has been updated. The section handles loading, empty, and error states cleanly.
+
+A comment form lets active members (`OWNER`, `ADMIN`, `MEMBER`) post a comment via
+`POST /tasks/<id>/comments`; the textarea is validated with the shared `createCommentSchema` and
+clears on success, appending the new comment to the list. `VIEWER` sees the conversation but a
+read-only notice instead of the form.
+
+Comment authorization mirrors the API: **Edit** (inline, validated with `updateCommentSchema`) is
+shown only to a comment's author, while **Delete** (with a browser confirm) is shown to the author
+and to `OWNER`/`ADMIN` moderators. Failed actions show a friendly message — `403` is a permission
+error and `404` means the comment is gone.
+
+To test manually: open a task, confirm the empty state, post a comment, confirm it appears and
+survives a refresh, edit your own comment (note the `edited` marker), then delete it.
 
 ## Quality Checks
 
