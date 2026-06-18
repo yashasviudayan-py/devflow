@@ -9,6 +9,7 @@ import {
   requireTaskOrganizationMember,
   requireTaskOrganizationRole,
 } from "../middleware/task.middleware.js";
+import { taskCommentRouter } from "./comment.routes.js";
 
 /**
  * Project-scoped task routes. Mounted under `/projects/:projectId/tasks` by the
@@ -32,6 +33,9 @@ projectTaskRouter.get("/", requireProjectOrganizationMember, list);
 export const taskRouter = Router();
 
 taskRouter.use(requireAuth);
+
+// Comment routes nested under a task. `requireAuth` above applies to them too.
+taskRouter.use("/:taskId/comments", taskCommentRouter);
 
 taskRouter.get("/:taskId", requireTaskOrganizationMember, getOne);
 taskRouter.patch("/:taskId", requireTaskOrganizationRole(["OWNER", "ADMIN", "MEMBER"]), update);

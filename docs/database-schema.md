@@ -103,6 +103,32 @@ Like projects, tasks have no membership model of their own. Authorization reuses
 `OrganizationMember`: a caller's access to a task is determined by their role in the organization
 that owns the task's project (task → project → organization).
 
+## Comments
+
+`Comment` is a message attached to a task. Every comment belongs to exactly one task, and a task has
+many comments (`Task.comments`).
+
+- `taskId` is the required owning task. The foreign key cascades on delete, so deleting (or
+  hard-removing) a task removes its comments.
+- `authorId` records the user who wrote the comment (relation `User.comments`, `Comment.author`). It
+  is optional and uses `onDelete: SetNull`, so a comment survives — preserving the discussion — even
+  if its author's account is later removed. The API sets this to the authenticated user on creation
+  and uses it for the author-only edit check.
+- `body` is the required comment text (1–5000 characters, validated in `packages/shared`).
+- `createdAt` orders the conversation; the list endpoint sorts by it ascending. `updatedAt` reflects
+  edits.
+- `@@index([taskId])` keeps per-task comment listings fast, and `@@index([authorId])` supports
+  "comments by user" lookups.
+
+Comments have **no soft-delete column** (no `archivedAt`/`deletedAt`), unlike `Project` and `Task`.
+Deletion is therefore a hard delete: authors can remove their own comments and OWNER/ADMIN can
+moderate any comment, both permanently. Because the `taskId` foreign key cascades, archiving is
+handled one level up — a task's comments travel with it.
+
+Like projects and tasks, comments have no membership model of their own. Authorization reuses
+`OrganizationMember`: a caller's access to a comment is determined by their role in the organization
+that owns the comment's task (comment → task → project → organization).
+
 ## Enums
 
 `UserRole` defines organization permissions:
