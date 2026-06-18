@@ -1,4 +1,5 @@
 import type {
+  CreateCommentInput,
   CreateOrganizationInput,
   CreateProjectInput,
   CreateTaskInput,
@@ -7,6 +8,7 @@ import type {
   TaskFilterInput,
   TaskPriority,
   TaskStatus,
+  UpdateCommentInput,
   UpdateProjectInput,
   UpdateTaskInput,
   UserRole,
@@ -79,6 +81,18 @@ export type Task = {
   // The creator (reporter) is always present; assignee is null when unassigned.
   assignee: TaskUser | null;
   reporter: TaskUser | null;
+};
+
+// A comment on a task. The nested author exposes only safe, public fields and is
+// null when the author's account was removed (the API sets authorId via SetNull).
+export type Comment = {
+  id: string;
+  taskId: string;
+  authorId: string | null;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  author: TaskUser | null;
 };
 
 export class ApiError extends Error {
@@ -304,6 +318,44 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
 export async function deleteTask(taskId: string): Promise<void> {
   // The API soft-archives on DELETE and responds with { success: true }.
   await request<{ success: boolean }>(`/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getTaskComments(taskId: string): Promise<Comment[]> {
+  // The API returns comments sorted by createdAt ascending (oldest first).
+  const data = await request<{ comments: Comment[] }>(`/tasks/${taskId}/comments`);
+
+  return data.comments;
+}
+
+export async function createTaskComment(
+  taskId: string,
+  input: CreateCommentInput,
+): Promise<Comment> {
+  const data = await request<{ comment: Comment }>(`/tasks/${taskId}/comments`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return data.comment;
+}
+
+export async function updateComment(
+  commentId: string,
+  input: UpdateCommentInput,
+): Promise<Comment> {
+  const data = await request<{ comment: Comment }>(`/comments/${commentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+
+  return data.comment;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  // The API hard-deletes a comment and responds with { success: true }.
+  await request<{ success: boolean }>(`/comments/${commentId}`, {
     method: "DELETE",
   });
 }

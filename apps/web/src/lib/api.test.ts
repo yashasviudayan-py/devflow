@@ -3,6 +3,8 @@ import {
   ApiError,
   createOrganization,
   createProject,
+  createTaskComment,
+  deleteComment,
   deleteProject,
   getApiBaseUrl,
   getCurrentUser,
@@ -13,11 +15,13 @@ import {
   getProject,
   getProjectTasks,
   getTask,
+  getTaskComments,
   createTask,
   deleteTask,
   login,
   logout,
   signup,
+  updateComment,
   updateProject,
   updateTask,
   updateTaskStatus,
@@ -56,6 +60,16 @@ const testTask = {
   updatedAt: "2026-06-08T00:00:00.000Z",
   assignee: null,
   reporter: { id: "user-1", name: "Test User", email: "test@example.com" },
+};
+
+const testComment = {
+  id: "comment-1",
+  taskId: "task-1",
+  authorId: "user-1",
+  body: "Looks good to me",
+  createdAt: "2026-06-18T00:00:00.000Z",
+  updatedAt: "2026-06-18T00:00:00.000Z",
+  author: { id: "user-1", name: "Test User", email: "test@example.com" },
 };
 
 const testOrganization = {
@@ -458,5 +472,79 @@ describe("task api client", () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).statusCode).toBe(404);
+  });
+});
+
+describe("comment api client", () => {
+  it("lists a task's comments with credentials included", async () => {
+    const fetchMock = mockFetchResponse(200, { comments: [testComment] });
+
+    const comments = await getTaskComments("task-1");
+
+    expect(comments).toEqual([testComment]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1/comments",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("creates a comment via POST and returns it", async () => {
+    const fetchMock = mockFetchResponse(201, { comment: testComment });
+
+    const input = { body: "Looks good to me" };
+    const comment = await createTaskComment("task-1", input);
+
+    expect(comment).toEqual(testComment);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1/comments",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify(input),
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+      }),
+    );
+  });
+
+  it("updates a comment via PATCH and returns it", async () => {
+    const updated = { ...testComment, body: "Edited", updatedAt: "2026-06-18T01:00:00.000Z" };
+    const fetchMock = mockFetchResponse(200, { comment: updated });
+
+    const input = { body: "Edited" };
+    const comment = await updateComment("comment-1", input);
+
+    expect(comment).toEqual(updated);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/comments/comment-1",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+        body: JSON.stringify(input),
+      }),
+    );
+  });
+
+  it("deletes a comment via DELETE", async () => {
+    const fetchMock = mockFetchResponse(200, { success: true });
+
+    await deleteComment("comment-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/comments/comment-1",
+      expect.objectContaining({ method: "DELETE", credentials: "include" }),
+    );
+  });
+
+  it("surfaces a 403 when a viewer tries to comment", async () => {
+    mockFetchResponse(403, {
+      error: { message: "You do not have permission to perform this action.", statusCode: 403 },
+    });
+
+    const error = await createTaskComment("task-1", { body: "Nope" }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(403);
   });
 });
