@@ -26,3 +26,13 @@ export const priorityOptions = taskPriorities.map((value) => ({
   value,
   label: priorityLabels[value],
 }));
+
+// Single source of truth for enum → label conversion, reused by the activity feed
+// so its wording stays consistent with badges, filters, and forms.
+export function statusLabel(status: TaskStatus): string {
+  return statusLabels[status];
+}
+
+export function priorityLabel(priority: TaskPriority): string {
+  return priorityLabels[priority];
+}
