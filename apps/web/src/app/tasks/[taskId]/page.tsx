@@ -4,6 +4,7 @@ import type { UserRole } from "@devflow/shared";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ActivitySection } from "@/components/ActivitySection";
 import { CommentsSection } from "@/components/CommentsSection";
 import { EditTaskForm } from "@/components/EditTaskForm";
 import { TaskPriorityBadge, TaskStatusBadge } from "@/components/TaskBadges";
@@ -261,6 +262,8 @@ export default function TaskDetailPage() {
               role={role}
               canComment={canManage}
             />
+
+            <ActivitySection source="task" id={task.id} members={members} />
           </>
         )}
       </div>
