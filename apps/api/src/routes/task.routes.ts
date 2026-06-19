@@ -9,6 +9,7 @@ import {
   requireTaskOrganizationMember,
   requireTaskOrganizationRole,
 } from "../middleware/task.middleware.js";
+import { taskActivityRouter } from "./activity-log.routes.js";
 import { taskCommentRouter } from "./comment.routes.js";
 
 /**
@@ -36,6 +37,9 @@ taskRouter.use(requireAuth);
 
 // Comment routes nested under a task. `requireAuth` above applies to them too.
 taskRouter.use("/:taskId/comments", taskCommentRouter);
+
+// Activity feed nested under a task. `requireAuth` above applies to it too.
+taskRouter.use("/:taskId/activity", taskActivityRouter);
 
 taskRouter.get("/:taskId", requireTaskOrganizationMember, getOne);
 taskRouter.patch("/:taskId", requireTaskOrganizationRole(["OWNER", "ADMIN", "MEMBER"]), update);

@@ -5,6 +5,11 @@ import {
   updateTaskSchema,
 } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
+import {
+  recordTaskArchived,
+  recordTaskChanges,
+  recordTaskCreated,
+} from "../services/activity-log.service.js";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
   archiveTask,
@@ -80,6 +85,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 
     const task = await createTask(project.id, user.id, input);
 
+    await recordTaskCreated({ organizationId: membership.organizationId, actorId: user.id }, task);
+
     res.status(201).json({
       task,
     });
@@ -118,6 +125,9 @@ export async function getOne(req: Request, res: Response, next: NextFunction) {
 
 export async function update(req: Request, res: Response, next: NextFunction) {
   try {
+    const user = getAuthenticatedUser(req);
+    // `task` is the pre-update snapshot cached by the access middleware; the
+    // recorder diffs it against `updated` to emit granular change events.
     const task = getTask(req);
     const membership = getMembership(req);
     const input = updateTaskSchema.parse(req.body);
@@ -129,6 +139,12 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 
     const updated = await updateTask(task.id, input);
 
+    await recordTaskChanges(
+      { organizationId: membership.organizationId, actorId: user.id },
+      task,
+      updated,
+    );
+
     res.status(200).json({
       task: updated,
     });
@@ -139,9 +155,16 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 
 export async function remove(req: Request, res: Response, next: NextFunction) {
   try {
+    const user = getAuthenticatedUser(req);
     const task = getTask(req);
+    const membership = getMembership(req);
     // Soft-archive rather than hard-delete so the task (and its comments) is recoverable.
     await archiveTask(task.id);
+
+    await recordTaskArchived(
+      { organizationId: membership.organizationId, actorId: user.id },
+      task,
+    );
 
     res.status(200).json({
       success: true,

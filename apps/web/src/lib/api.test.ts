@@ -13,8 +13,10 @@ import {
   getOrganizationProjects,
   getOrganizations,
   getProject,
+  getProjectActivity,
   getProjectTasks,
   getTask,
+  getTaskActivity,
   getTaskComments,
   createTask,
   deleteTask,
@@ -546,5 +548,54 @@ describe("comment api client", () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).statusCode).toBe(403);
+  });
+});
+
+describe("activity api client", () => {
+  const testActivity = {
+    id: "activity-1",
+    organizationId: "org-1",
+    projectId: "project-1",
+    taskId: "task-1",
+    actorId: "user-1",
+    action: "TASK_STATUS_CHANGED" as const,
+    entityType: "TASK" as const,
+    entityId: "task-1",
+    metadata: { from: "TODO", to: "IN_PROGRESS" },
+    createdAt: "2026-06-19T00:00:00.000Z",
+    actor: { id: "user-1", name: "Test User", email: "test@example.com" },
+  };
+
+  it("fetches task activity with credentials included", async () => {
+    const fetchMock = mockFetchResponse(200, { activity: [testActivity], nextCursor: null });
+
+    const activity = await getTaskActivity("task-1");
+
+    expect(activity).toEqual([testActivity]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/tasks/task-1/activity",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("fetches project activity with credentials included", async () => {
+    const fetchMock = mockFetchResponse(200, { activity: [testActivity], nextCursor: null });
+
+    const activity = await getProjectActivity("project-1");
+
+    expect(activity).toEqual([testActivity]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/projects/project-1/activity",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("surfaces a 404 for an inaccessible task's activity", async () => {
+    mockFetchResponse(404, { error: { message: "Task not found", statusCode: 404 } });
+
+    const error = await getTaskActivity("task-x").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(404);
   });
 });

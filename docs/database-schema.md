@@ -12,7 +12,7 @@ The initial Prisma schema is intentionally realistic but still small enough to l
 | `Project`            | A project inside an organization. Tasks belong to projects.                                                                |
 | `Task`               | A work item with status, priority, optional assignee, optional reporter, and optional due date.                            |
 | `Comment`            | A message attached to a task.                                                                                              |
-| `ActivityLog`        | A lightweight audit trail for project activity.                                                                            |
+| `ActivityLog`        | A lightweight, server-written audit trail for project, task, and comment activity.                                         |
 | `Notification`       | A user-facing notification such as an assignment, mention, or reminder.                                                    |
 
 ## Authentication Foundation
@@ -129,6 +129,36 @@ Like projects and tasks, comments have no membership model of their own. Authori
 `OrganizationMember`: a caller's access to a comment is determined by their role in the organization
 that owns the comment's task (comment → task → project → organization).
 
+## Activity Logs
+
+`ActivityLog` is a lightweight audit trail. It is written **only by the server** (there is
+no client-facing create endpoint and no user-supplied fields), and it is a simple append
+log — not an event-sourcing system that the application's state is rebuilt from.
+
+- `organizationId` is the required owning organization and the authoritative scoping field.
+  The foreign key cascades on delete. `@@index([organizationId])` keeps per-org lookups fast.
+- `projectId` is optional (`onDelete: Cascade`). Every event currently recorded belongs to a
+  project, but the column is nullable so future org-level events can be logged without one.
+- `taskId` is optional (`onDelete: Cascade`). It is set on task events **and on comment
+  events** (a comment's task), so a task's full timeline — its own changes plus its
+  comments — is a single indexed `where: { taskId }` lookup. Because every event also carries
+  `projectId`, a project's whole timeline is a single `where: { projectId }` lookup.
+- `actorId` records the user who performed the action (relation `User.activityLogs`). It is
+  optional and uses `onDelete: SetNull`, so history survives a user's removal. Reads expose
+  the actor with safe fields only (`id`, `name`, `email`); `passwordHash` is never selected.
+- `action` (`ActivityAction`) and `entityType` (`ActivityEntityType`) classify the event.
+- `entityId` is the affected entity's id, stored as a **plain string, not a foreign key**.
+  This is deliberate: comments are hard-deleted, and a `COMMENT_DELETED` log must outlive the
+  comment row, so `entityId` must not cascade away with it.
+- `metadata` (`Json?`) stores small, non-sensitive old/new values describing the change.
+- `createdAt` orders the trail; feeds sort by it descending (newest first).
+- `@@index([projectId])`, `@@index([taskId])`, and `@@index([entityType, entityId])` back
+  the feed queries and entity lookups.
+
+Like the rest of the platform, activity logs have no membership model of their own.
+Authorization for reading them reuses `OrganizationMember`, derived from the owning task or
+project, so a user can only see activity for resources they can already access.
+
 ## Enums
 
 `UserRole` defines organization permissions:
@@ -160,6 +190,19 @@ that owns the comment's task (comment → task → project → organization).
 - `COMMENT_ADDED`
 - `DUE_DATE_REMINDER`
 - `PROJECT_UPDATED`
+
+`ActivityAction` defines the recorded audit events:
+
+- `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_ARCHIVED`
+- `TASK_CREATED`, `TASK_UPDATED`, `TASK_STATUS_CHANGED`, `TASK_PRIORITY_CHANGED`,
+  `TASK_ASSIGNED`, `TASK_UNASSIGNED`, `TASK_ARCHIVED`
+- `COMMENT_CREATED`, `COMMENT_UPDATED`, `COMMENT_DELETED`
+
+`ActivityEntityType` defines what an activity log points at:
+
+- `PROJECT`
+- `TASK`
+- `COMMENT`
 
 ## Migration Workflow
 

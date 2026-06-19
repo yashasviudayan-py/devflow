@@ -9,6 +9,7 @@ import {
   requireProjectOrganizationMember,
   requireProjectOrganizationRole,
 } from "../middleware/project.middleware.js";
+import { projectActivityRouter } from "./activity-log.routes.js";
 import { projectTaskRouter } from "./task.routes.js";
 
 /**
@@ -35,6 +36,9 @@ projectRouter.use(requireAuth);
 
 // Task routes nested under a project. `requireAuth` above applies to them too.
 projectRouter.use("/:projectId/tasks", projectTaskRouter);
+
+// Activity feed nested under a project. `requireAuth` above applies to it too.
+projectRouter.use("/:projectId/activity", projectActivityRouter);
 
 projectRouter.get("/:projectId", requireProjectOrganizationMember, getOne);
 projectRouter.patch("/:projectId", requireProjectOrganizationRole(["OWNER", "ADMIN"]), update);

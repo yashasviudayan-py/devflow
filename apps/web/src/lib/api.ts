@@ -1,4 +1,6 @@
 import type {
+  ActivityAction,
+  ActivityEntityType,
   CreateCommentInput,
   CreateOrganizationInput,
   CreateProjectInput,
@@ -93,6 +95,24 @@ export type Comment = {
   createdAt: string;
   updatedAt: string;
   author: TaskUser | null;
+};
+
+// A server-written audit log entry. The nested actor exposes only safe, public
+// fields and is null when the actor's account was removed (the API sets actorId
+// via SetNull). `metadata` is a small, action-specific JSON object (e.g. old/new
+// values); the UI reads it defensively since its shape varies by action.
+export type ActivityLog = {
+  id: string;
+  organizationId: string;
+  projectId: string | null;
+  taskId: string | null;
+  actorId: string | null;
+  action: ActivityAction;
+  entityType: ActivityEntityType;
+  entityId: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actor: TaskUser | null;
 };
 
 export class ApiError extends Error {
@@ -358,4 +378,24 @@ export async function deleteComment(commentId: string): Promise<void> {
   await request<{ success: boolean }>(`/comments/${commentId}`, {
     method: "DELETE",
   });
+}
+
+export async function getTaskActivity(taskId: string): Promise<ActivityLog[]> {
+  // The API returns activity newest-first and is paginated; the UI shows the
+  // first page for now (mirroring the task list).
+  const data = await request<{ activity: ActivityLog[]; nextCursor: string | null }>(
+    `/tasks/${taskId}/activity`,
+  );
+
+  return data.activity;
+}
+
+export async function getProjectActivity(projectId: string): Promise<ActivityLog[]> {
+  // Returns project-level activity plus its tasks' and comments' activity, all
+  // newest-first. Paginated; the UI shows the first page for now.
+  const data = await request<{ activity: ActivityLog[]; nextCursor: string | null }>(
+    `/projects/${projectId}/activity`,
+  );
+
+  return data.activity;
 }
