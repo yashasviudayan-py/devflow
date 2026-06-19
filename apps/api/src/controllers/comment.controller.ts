@@ -1,5 +1,10 @@
 import { createCommentSchema, updateCommentSchema, type UserRole } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
+import {
+  recordCommentCreated,
+  recordCommentDeleted,
+  recordCommentUpdated,
+} from "../services/activity-log.service.js";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
   createComment,
@@ -64,6 +69,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 
     const comment = await createComment(task.id, user.id, input);
 
+    await recordCommentCreated({ taskId: task.id, commentId: comment.id, actorId: user.id });
+
     res.status(201).json({
       comment,
     });
@@ -99,6 +106,12 @@ export async function update(req: Request, res: Response, next: NextFunction) {
     const input = updateCommentSchema.parse(req.body);
     const updated = await updateComment(comment.id, input);
 
+    await recordCommentUpdated({
+      taskId: comment.taskId,
+      commentId: comment.id,
+      actorId: user.id,
+    });
+
     res.status(200).json({
       comment: updated,
     });
@@ -122,6 +135,15 @@ export async function remove(req: Request, res: Response, next: NextFunction) {
     }
 
     await deleteComment(comment.id);
+
+    // Recorded after the hard delete. The log references the comment id as a plain
+    // string (not a foreign key), so the COMMENT_DELETED entry survives even though
+    // the comment row is gone; the task it belonged to still exists for context.
+    await recordCommentDeleted({
+      taskId: comment.taskId,
+      commentId: comment.id,
+      actorId: user.id,
+    });
 
     res.status(200).json({
       success: true,
