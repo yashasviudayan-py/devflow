@@ -1,5 +1,10 @@
 import { createProjectSchema, paginationQuerySchema, updateProjectSchema } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
+import {
+  recordProjectArchived,
+  recordProjectCreated,
+  recordProjectUpdated,
+} from "../services/activity-log.service.js";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
   archiveProject,
@@ -52,6 +57,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
     const input = createProjectSchema.parse(req.body);
     const project = await createProject(membership.organizationId, user.id, input);
 
+    await recordProjectCreated({ organizationId: membership.organizationId, actorId: user.id }, project);
+
     res.status(201).json({
       project,
     });
@@ -89,9 +96,18 @@ export async function getOne(req: Request, res: Response, next: NextFunction) {
 
 export async function update(req: Request, res: Response, next: NextFunction) {
   try {
+    const user = getAuthenticatedUser(req);
+    // `project` is the pre-update snapshot cached by the access middleware; the
+    // recorder diffs it against the updated row to record what actually changed.
     const project = getProject(req);
     const input = updateProjectSchema.parse(req.body);
     const updated = await updateProject(project.id, input);
+
+    await recordProjectUpdated(
+      { organizationId: project.organizationId, actorId: user.id },
+      project,
+      updated,
+    );
 
     res.status(200).json({
       project: updated,
@@ -103,9 +119,15 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 
 export async function remove(req: Request, res: Response, next: NextFunction) {
   try {
+    const user = getAuthenticatedUser(req);
     const project = getProject(req);
     // Soft-archive rather than hard-delete so the data (and future tasks) is recoverable.
     await archiveProject(project.id);
+
+    await recordProjectArchived(
+      { organizationId: project.organizationId, actorId: user.id },
+      project,
+    );
 
     res.status(200).json({
       success: true,
