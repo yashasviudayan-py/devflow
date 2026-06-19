@@ -205,6 +205,33 @@ error and `404` means the comment is gone.
 To test manually: open a task, confirm the empty state, post a comment, confirm it appears and
 survives a refresh, edit your own comment (note the `edited` marker), then delete it.
 
+## Activity Logs in the Web App
+
+Both the task and project detail pages have an **Activity** section that shows a server-written
+audit trail, newest-first:
+
+- `http://localhost:3000/tasks/<id>` — fetches `GET /tasks/<id>/activity` (the task's own events
+  plus comments on it)
+- `http://localhost:3000/projects/<id>` — fetches `GET /projects/<id>/activity` (project, task,
+  and comment events under the project)
+
+Each row shows the actor's name, a readable summary of what happened, and a timestamp — for
+example "Yashasvi moved this task from To do to In progress" or "Yashasvi assigned this task to
+Alex". Enum values are converted to the same labels used elsewhere in the UI, and assignment
+events resolve the assignee id to a name via the organization's member list (falling back to "a
+member" when unknown). The wording adapts to context ("this task" on a task page, "a task" in the
+project feed). The section handles loading, empty, and error states, and unknown actions or
+missing metadata degrade gracefully rather than breaking the timeline.
+
+Activity is read-only and there is no create UI — the API records events automatically. Access
+uses the same membership check as the page itself, so a member who can open the page can load its
+activity; non-members never reach the page (they get the `404` not-found screen), and
+unauthenticated users are redirected to `/login`.
+
+To test manually: open a task, change its status and priority, add and edit a comment, then
+confirm those actions appear in the task's Activity section; open the project and confirm the
+project Activity section shows the project and task events with actor names and timestamps.
+
 ## Quality Checks
 
 Run these before opening a pull request:

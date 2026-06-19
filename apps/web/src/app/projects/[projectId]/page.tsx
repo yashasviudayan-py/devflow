@@ -4,6 +4,7 @@ import type { TaskFilterInput } from "@devflow/shared";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ActivitySection } from "@/components/ActivitySection";
 import { EditProjectForm } from "@/components/EditProjectForm";
 import { TaskFilters } from "@/components/TaskFilters";
 import { EmptyTasksState, TaskList } from "@/components/TaskList";
@@ -315,6 +316,8 @@ export default function ProjectDetailPage() {
                 )}
               </div>
             </section>
+
+            <ActivitySection source="project" id={project.id} members={members} />
           </>
         )}
       </div>
