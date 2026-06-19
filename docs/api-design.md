@@ -376,6 +376,94 @@ and returns the updated comment.
 Unlike tasks and projects, comments have no soft-delete column, so deletion is permanent. (Deleting
 a task cascades to its comments.)
 
+## Activity Log Routes
+
+Activity logs are a lightweight, server-written audit trail. Important project, task,
+and comment actions are recorded automatically by the API — **there is no endpoint for
+clients to create activity logs**, and the recorded events do not accept user-supplied
+fields. Two read-only feeds expose the trail.
+
+| Method | Route                            | Access            |
+| ------ | -------------------------------- | ----------------- |
+| GET    | `/tasks/:taskId/activity`        | Member (any role) |
+| GET    | `/projects/:projectId/activity`  | Member (any role) |
+
+Both routes are nested under their parent resource and reuse the existing access
+middleware, so authorization is identical to reading the task or project itself:
+
+- `GET /tasks/:taskId/activity` runs `requireTaskOrganizationMember` (task → project →
+  organization). A non-member — or a request for a non-existent task — gets `404`, so the
+  feed never leaks the existence of, or activity from, organizations the caller does not
+  belong to.
+- `GET /projects/:projectId/activity` runs `requireProjectOrganizationMember` (project →
+  organization) with the same `404` behaviour.
+
+Reading activity is a read action, so any member (including `VIEWER`) may view it.
+Unauthenticated requests get `401`. An invalid pagination `limit` gets `400`.
+
+Each event is stamped with the `projectId` and (for task/comment events) `taskId` it
+relates to, so the **task feed** returns that task's events plus the comments on it, and
+the **project feed** returns everything under the project (project, task, and comment
+events) with a single indexed query. Results are sorted **newest first** (`createdAt`
+descending) and use the shared `limit`/`cursor` pagination convention (default `20`):
+
+```json
+{
+  "activity": [
+    {
+      "id": "clx...",
+      "organizationId": "clx...",
+      "projectId": "clx...",
+      "taskId": "clx...",
+      "actorId": "clx...",
+      "action": "TASK_STATUS_CHANGED",
+      "entityType": "TASK",
+      "entityId": "clx...",
+      "metadata": { "from": "TODO", "to": "IN_PROGRESS" },
+      "createdAt": "2026-06-19T00:00:00.000Z",
+      "actor": { "id": "clx...", "name": "Yashasvi Udayan", "email": "yashasvi@example.com" }
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+The nested `actor` object exposes only `id`, `name`, and `email`; `passwordHash` is never
+returned. `actorId`/`actor` may be `null` if the actor's account was later removed (the
+relation uses `onDelete: SetNull`).
+
+### Recorded actions and metadata
+
+`action` is one of the `ActivityAction` values and `entityType` is one of `PROJECT`,
+`TASK`, or `COMMENT`. `entityId` is the id of the affected entity (for `COMMENT_DELETED`
+it is the now-deleted comment's id, stored as a plain string so the log survives the
+delete). `metadata` is a small JSON object whose shape depends on the action — it stores
+useful old/new values only, and never sensitive data:
+
+| Action                  | When                                | Example metadata                                  |
+| ----------------------- | ----------------------------------- | ------------------------------------------------- |
+| `PROJECT_CREATED`       | Project created                     | `{ "name": "Website redesign" }`                  |
+| `PROJECT_UPDATED`       | Project patched                     | `{ "changes": { "name": { "from": "A", "to": "B" } } }` |
+| `PROJECT_ARCHIVED`      | Project archived (DELETE)           | `{ "name": "Website redesign" }`                  |
+| `TASK_CREATED`          | Task created                        | `{ "title": "...", "status": "TODO", "priority": "MEDIUM" }` |
+| `TASK_UPDATED`          | Title/description/due date edited   | `{ "changes": { "title": { "from": "A", "to": "B" }, "description": { "changed": true } } }` |
+| `TASK_STATUS_CHANGED`   | Status changed                      | `{ "from": "TODO", "to": "IN_PROGRESS" }`         |
+| `TASK_PRIORITY_CHANGED` | Priority changed                    | `{ "from": "MEDIUM", "to": "HIGH" }`              |
+| `TASK_ASSIGNED`         | Assignee set/changed                | `{ "from": null, "to": "clxUser..." }`            |
+| `TASK_UNASSIGNED`       | Assignee cleared                    | `{ "from": "clxUser..." }`                        |
+| `TASK_ARCHIVED`         | Task archived (DELETE or PATCH)     | `{ "title": "..." }`                              |
+| `COMMENT_CREATED`       | Comment posted                      | _none_                                            |
+| `COMMENT_UPDATED`       | Comment edited                      | _none_                                            |
+| `COMMENT_DELETED`       | Comment deleted                     | _none_                                            |
+
+A single `PATCH /tasks/:taskId` can record several events at once (for example a status
+change and a priority change), each with its own metadata. Task descriptions can be long,
+so a description edit records only `{ "changed": true }` rather than both full bodies.
+
+Recording is **best-effort**: it happens after the user action has already succeeded, and
+a failed audit write is logged server-side and swallowed so it never turns a successful
+mutation into an error for the user.
+
 ## Future Route Ideas
 
 | Method | Route                              | Purpose                          |
