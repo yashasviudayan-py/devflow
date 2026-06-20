@@ -6,6 +6,7 @@ import {
   recordCommentUpdated,
 } from "../services/activity-log.service.js";
 import { HttpError } from "../middleware/error.middleware.js";
+import { notifyTaskCommented } from "../services/notification.service.js";
 import {
   createComment,
   deleteComment,
@@ -65,11 +66,20 @@ export async function create(req: Request, res: Response, next: NextFunction) {
   try {
     const user = getAuthenticatedUser(req);
     const task = getTask(req);
+    const membership = getMembership(req);
     const input = createCommentSchema.parse(req.body);
 
     const comment = await createComment(task.id, user.id, input);
 
     await recordCommentCreated({ taskId: task.id, commentId: comment.id, actorId: user.id });
+
+    // Notify the task's assignee and reporter (creator), excluding the comment
+    // author. `task` here is the access-middleware snapshot, which carries both ids.
+    await notifyTaskCommented(
+      { organizationId: membership.organizationId, actor: user },
+      task,
+      comment.id,
+    );
 
     res.status(201).json({
       comment,
