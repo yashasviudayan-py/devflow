@@ -159,6 +159,38 @@ Like the rest of the platform, activity logs have no membership model of their o
 Authorization for reading them reuses `OrganizationMember`, derived from the owning task or
 project, so a user can only see activity for resources they can already access.
 
+## Notifications
+
+`Notification` tells a single user about an event that concerns them. Like activity logs,
+notifications are written **only by the server** (there is no client-facing create endpoint
+and no user-supplied fields), but unlike every other resource they have **no organization
+membership model**: each notification belongs to exactly one recipient, so authorization is
+simply ownership.
+
+- `userId` is the required recipient and the authoritative scoping field (relation
+  `User.notifications`, `onDelete: Cascade`). Every read and mutation is scoped by it, so a
+  user can only ever touch their own notifications. `@@index([userId, readAt])` backs both the
+  "my notifications" list and the unread-count query.
+- `actorId` is the user who triggered the notification — who assigned the task, changed it, or
+  left the comment (relation `User.triggeredNotifications`). It is optional and uses
+  `onDelete: SetNull`, so a notification survives the actor's removal. Reads expose the actor
+  with safe fields only (`id`, `name`, `email`); `passwordHash` is never selected.
+- `type` (`NotificationType`) classifies the event; `title` and `message` are the rendered,
+  human-readable text.
+- `readAt` (`DateTime?`) is the unread/read flag: `null` means unread. Marking read stamps it;
+  the unread count is `where: { userId, readAt: null }`.
+- `data` (`Json?`) holds small, non-sensitive context for deep-linking and display
+  (`taskId`, `projectId`, `organizationId`, and any `from`/`to` or `commentId`). Cross-entity
+  references (task/project/comment) are stored here rather than as dedicated foreign-key
+  columns, keeping the model small; the only relation added beyond the recipient is `actor`,
+  which is needed to return safe actor data on reads.
+- `createdAt` orders the feed (newest first); `updatedAt` tracks read-state changes.
+
+Notifications are hard-deleted (there is no soft-delete column), mirroring comments. Recipients
+are always organization members, because assignees are validated against the organization on
+assignment and reporters created the task — so a notification never reaches a user outside the
+organization.
+
 ## Enums
 
 `UserRole` defines organization permissions:
@@ -183,11 +215,14 @@ project, so a user can only see activity for resources they can already access.
 - `HIGH`
 - `URGENT`
 
-`NotificationType` defines the initial notification categories:
+`NotificationType` defines the notification categories. The first four are emitted today; the
+rest exist for future use (mentions, due-date reminders, project updates):
 
 - `TASK_ASSIGNED`
-- `MENTION`
+- `TASK_STATUS_CHANGED`
+- `TASK_PRIORITY_CHANGED`
 - `COMMENT_ADDED`
+- `MENTION`
 - `DUE_DATE_REMINDER`
 - `PROJECT_UPDATED`
 

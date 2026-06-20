@@ -464,6 +464,99 @@ Recording is **best-effort**: it happens after the user action has already succe
 a failed audit write is logged server-side and swallowed so it never turns a successful
 mutation into an error for the user.
 
+## Notification Routes
+
+Notifications tell a user about events that concern them — a task assigned to them, a
+status/priority change on a task they own, or a new comment on a task they are involved in.
+They are written **only by the server** as a side effect of those events; **there is no
+endpoint for clients to create notifications**.
+
+Unlike every other resource, notifications have **no organization membership model**: each
+notification belongs to exactly one recipient (`userId`), so authorization is simply "the
+caller is the owner". All routes require an authenticated user, and every query is scoped to
+the authenticated user's id.
+
+| Method | Route                              | Access            |
+| ------ | ---------------------------------- | ----------------- |
+| GET    | `/notifications`                   | Owner (self)      |
+| GET    | `/notifications/unread-count`      | Owner (self)      |
+| PATCH  | `/notifications/read-all`          | Owner (self)      |
+| PATCH  | `/notifications/:notificationId/read` | Owner (self)   |
+| DELETE | `/notifications/:notificationId`   | Owner (self)      |
+
+Unauthenticated requests get `401`. A notification that does not exist **or** belongs to
+another user returns `404` — a wrong id and a foreign id are indistinguishable to the caller,
+so the API never leaks the existence of notifications you cannot access. There is no `403`:
+you either own a notification or, as far as you can tell, it does not exist.
+
+`GET /notifications` returns the caller's notifications sorted **newest first** (`createdAt`
+descending, `id` tiebreaker) using the shared `limit`/`cursor` pagination convention
+(default `20`, max `100`):
+
+```json
+{
+  "notifications": [
+    {
+      "id": "clx...",
+      "userId": "clx...",
+      "actorId": "clx...",
+      "type": "TASK_ASSIGNED",
+      "title": "Task assigned to you",
+      "message": "Yashasvi Udayan assigned you \"Write the docs\"",
+      "readAt": null,
+      "data": { "taskId": "clx...", "projectId": "clx...", "organizationId": "clx..." },
+      "createdAt": "2026-06-20T00:00:00.000Z",
+      "updatedAt": "2026-06-20T00:00:00.000Z",
+      "actor": { "id": "clx...", "name": "Yashasvi Udayan", "email": "yashasvi@example.com" }
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+The nested `actor` object (the user who triggered the notification) exposes only `id`,
+`name`, and `email`; `passwordHash` is never returned. `actorId`/`actor` may be `null` if the
+actor's account was later removed (the relation uses `onDelete: SetNull`). `data` is a small
+JSON object with deep-link context and any relevant old/new values; it never contains
+sensitive data. An invalid pagination `limit` gets `400`.
+
+`GET /notifications/unread-count` returns `{ "count": <number> }` — the number of the
+caller's notifications with `readAt = null`.
+
+`PATCH /notifications/:notificationId/read` sets `readAt` if the notification is unread
+(idempotent — marking an already-read notification just returns it) and responds with the
+updated `{ "notification": { ... } }`.
+
+`PATCH /notifications/read-all` marks all of the caller's unread notifications read and
+responds with `{ "updated": <count> }` (the number of rows changed).
+
+`DELETE /notifications/:notificationId` hard-deletes the notification (notifications have no
+soft-delete column, mirroring comments) and responds with `{ "success": true }`.
+
+### Notification types and when they are created
+
+Notifications are created automatically, after the user action that triggers them has already
+succeeded. Creation is **best-effort**: a failed notification write is logged server-side and
+swallowed so it never turns a successful task/comment mutation into an error (the same policy
+as activity logs). The actor is never notified about their own action.
+
+| `type`                  | Created when                                          | Recipient(s)                         |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------ |
+| `TASK_ASSIGNED`         | A task is created assigned to, or reassigned to, a user other than the actor | The (new) assignee     |
+| `TASK_STATUS_CHANGED`   | Someone other than the assignee changes a task's status   | The current assignee            |
+| `TASK_PRIORITY_CHANGED` | Someone other than the assignee changes a task's priority | The current assignee            |
+| `COMMENT_ADDED`         | Someone comments on a task                            | The task's assignee and reporter (creator), excluding the comment author |
+
+`data` carries `{ taskId, projectId, organizationId }` plus, where relevant, the `from`/`to`
+values (status/priority changes) or the `commentId` (comments). The `MENTION`,
+`DUE_DATE_REMINDER`, and `PROJECT_UPDATED` types exist in the schema for future use but are
+not emitted yet.
+
+Recipients are always organization members (assignees are validated against the organization
+on assignment; reporters created the task), so notifications never reach users outside the
+organization. Duplicate notifications are avoided: a single comment notifies a user who is
+both assignee and reporter only once, and self-notifications are suppressed everywhere.
+
 ## Future Route Ideas
 
 | Method | Route                              | Purpose                          |
