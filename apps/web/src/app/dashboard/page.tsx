@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { OrganizationList } from "@/components/OrganizationList";
 import {
   getStoredActiveOrganizationId,
@@ -94,14 +95,17 @@ export default function DashboardPage() {
               Signed in as {user.name} ({user.email})
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="self-start rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
-          >
-            {isLoggingOut ? "Logging out…" : "Log out"}
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoggingOut ? "Logging out…" : "Log out"}
+            </button>
+          </div>
         </header>
 
         {logoutError ? <p className="mt-4 text-sm text-red-600">{logoutError}</p> : null}
