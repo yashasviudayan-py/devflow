@@ -6,6 +6,7 @@ import { errorMiddleware, notFoundMiddleware } from "./middleware/error.middlewa
 import { authRouter } from "./routes/auth.routes.js";
 import { commentRouter } from "./routes/comment.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
+import { notificationRouter } from "./routes/notification.routes.js";
 import { organizationRouter } from "./routes/organization.routes.js";
 import { projectRouter } from "./routes/project.routes.js";
 import { taskRouter } from "./routes/task.routes.js";
@@ -27,6 +28,7 @@ app.use("/organizations", organizationRouter);
 app.use("/projects", projectRouter);
 app.use("/tasks", taskRouter);
 app.use("/comments", commentRouter);
+app.use("/notifications", notificationRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
