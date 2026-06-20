@@ -5,9 +5,14 @@ import {
   createProject,
   createTaskComment,
   deleteComment,
+  deleteNotification,
   deleteProject,
   getApiBaseUrl,
   getCurrentUser,
+  getNotifications,
+  getUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationRead,
   getOrganization,
   getOrganizationMembers,
   getOrganizationProjects,
@@ -594,6 +599,94 @@ describe("activity api client", () => {
     mockFetchResponse(404, { error: { message: "Task not found", statusCode: 404 } });
 
     const error = await getTaskActivity("task-x").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(404);
+  });
+});
+
+describe("notification api client", () => {
+  const testNotification = {
+    id: "notification-1",
+    userId: "user-1",
+    actorId: "user-2",
+    type: "TASK_ASSIGNED" as const,
+    title: "Task assigned to you",
+    message: 'Alex assigned you "Ship the tasks UI"',
+    readAt: null,
+    data: { taskId: "task-1", projectId: "project-1", organizationId: "org-1" },
+    createdAt: "2026-06-20T00:00:00.000Z",
+    updatedAt: "2026-06-20T00:00:00.000Z",
+    actor: { id: "user-2", name: "Alex", email: "alex@example.com" },
+  };
+
+  it("lists notifications with credentials included", async () => {
+    const fetchMock = mockFetchResponse(200, {
+      notifications: [testNotification],
+      nextCursor: null,
+    });
+
+    const notifications = await getNotifications();
+
+    expect(notifications).toEqual([testNotification]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/notifications",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("fetches the unread count", async () => {
+    const fetchMock = mockFetchResponse(200, { count: 3 });
+
+    const count = await getUnreadNotificationCount();
+
+    expect(count).toBe(3);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/notifications/unread-count",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("marks one notification read via PATCH and returns it", async () => {
+    const updated = { ...testNotification, readAt: "2026-06-20T01:00:00.000Z" };
+    const fetchMock = mockFetchResponse(200, { notification: updated });
+
+    const notification = await markNotificationRead("notification-1");
+
+    expect(notification).toEqual(updated);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/notifications/notification-1/read",
+      expect.objectContaining({ method: "PATCH", credentials: "include" }),
+    );
+  });
+
+  it("marks all notifications read via PATCH and returns the updated count", async () => {
+    const fetchMock = mockFetchResponse(200, { updated: 5 });
+
+    const updated = await markAllNotificationsRead();
+
+    expect(updated).toBe(5);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/notifications/read-all",
+      expect.objectContaining({ method: "PATCH", credentials: "include" }),
+    );
+  });
+
+  it("deletes a notification via DELETE", async () => {
+    const fetchMock = mockFetchResponse(200, { success: true });
+
+    await deleteNotification("notification-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/notifications/notification-1",
+      expect.objectContaining({ method: "DELETE", credentials: "include" }),
+    );
+  });
+
+  it("surfaces a 404 when marking another user's notification read", async () => {
+    mockFetchResponse(404, { error: { message: "Notification not found", statusCode: 404 } });
+
+    const error = await markNotificationRead("notification-x").catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).statusCode).toBe(404);
