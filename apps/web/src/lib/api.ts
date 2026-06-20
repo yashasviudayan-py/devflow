@@ -6,6 +6,7 @@ import type {
   CreateProjectInput,
   CreateTaskInput,
   LoginInput,
+  NotificationType,
   SignupInput,
   TaskFilterInput,
   TaskPriority,
@@ -112,6 +113,26 @@ export type ActivityLog = {
   entityId: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  actor: TaskUser | null;
+};
+
+// A server-created notification addressed to the current user. The nested actor
+// (who triggered it) exposes only safe, public fields and is null when that
+// account was removed (the API sets actorId via SetNull). `data` is a small JSON
+// object with deep-link context (taskId/projectId/organizationId) plus any
+// relevant old/new values; the UI reads it defensively since its shape varies by
+// type. `readAt` is null while the notification is unread.
+export type Notification = {
+  id: string;
+  userId: string;
+  actorId: string | null;
+  type: NotificationType;
+  title: string;
+  message: string;
+  readAt: string | null;
+  data: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
   actor: TaskUser | null;
 };
 
@@ -398,4 +419,47 @@ export async function getProjectActivity(projectId: string): Promise<ActivityLog
   );
 
   return data.activity;
+}
+
+export async function getNotifications(): Promise<Notification[]> {
+  // The API returns the caller's notifications newest-first and is paginated; the
+  // UI shows the first page for now (mirroring the activity and task lists).
+  const data = await request<{ notifications: Notification[]; nextCursor: string | null }>(
+    "/notifications",
+  );
+
+  return data.notifications;
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const data = await request<{ count: number }>("/notifications/unread-count");
+
+  return data.count;
+}
+
+export async function markNotificationRead(notificationId: string): Promise<Notification> {
+  const data = await request<{ notification: Notification }>(
+    `/notifications/${notificationId}/read`,
+    {
+      method: "PATCH",
+    },
+  );
+
+  return data.notification;
+}
+
+export async function markAllNotificationsRead(): Promise<number> {
+  // The API responds with { updated: <count> } — the number of rows changed.
+  const data = await request<{ updated: number }>("/notifications/read-all", {
+    method: "PATCH",
+  });
+
+  return data.updated;
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  // The API hard-deletes the notification and responds with { success: true }.
+  await request<{ success: boolean }>(`/notifications/${notificationId}`, {
+    method: "DELETE",
+  });
 }

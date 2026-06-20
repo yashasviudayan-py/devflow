@@ -232,6 +232,37 @@ To test manually: open a task, change its status and priority, add and edit a co
 confirm those actions appear in the task's Activity section; open the project and confirm the
 project Activity section shows the project and task events with actor names and timestamps.
 
+## Notifications in the Web App
+
+Notifications tell you about events that concern you — a task assigned to you, a status/priority
+change on a task you own, or a new comment on a task you are involved in. They are created
+automatically by the API; there is no create UI.
+
+- The **dashboard** header (`http://localhost:3000/dashboard`) shows a **Notifications** bell that
+  fetches `GET /notifications/unread-count` on load and shows a small badge when you have unread
+  notifications. Clicking it opens the notifications page.
+- `http://localhost:3000/notifications` lists your notifications newest-first (`GET
+  /notifications`). Each row shows the actor, a title/message, a timestamp, an unread indicator,
+  and — when the notification has enough metadata — a **View** link to the related task, project,
+  or organization. The page handles loading, empty, and error states.
+- **Mark read** marks a single notification read (`PATCH /notifications/<id>/read`); **Mark all as
+  read** clears them all (`PATCH /notifications/read-all`); **Delete** removes one (`DELETE
+  /notifications/<id>`, after a confirm). The unread summary updates locally after each action
+  without a refetch.
+
+You only ever see your own notifications: every endpoint is scoped to the signed-in user, and the
+page reuses the app-wide auth guard, so unauthenticated users are redirected to `/login`.
+
+To test manually with two accounts (e.g. an owner and a member of the same organization): as the
+owner, assign a task to the member and comment on it; then sign in as the member and confirm the
+bell shows an unread count, the `/notifications` page lists those notifications, the **View** link
+opens the task, **Mark read** lowers the count, **Mark all as read** zeroes it, and **Delete**
+removes a notification.
+
+> **Note:** the unread count is fetched on page load and refreshed after actions on the
+> notifications page — it does not live-update via polling or websockets yet (deferred to a future
+> PR). Reload the dashboard to refresh the bell after reading notifications elsewhere.
+
 ## Quality Checks
 
 Run these before opening a pull request:
