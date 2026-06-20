@@ -11,6 +11,7 @@ import {
   recordTaskCreated,
 } from "../services/activity-log.service.js";
 import { HttpError } from "../middleware/error.middleware.js";
+import { notifyTaskAssigned, notifyTaskChanges } from "../services/notification.service.js";
 import {
   archiveTask,
   assigneeBelongsToOrganization,
@@ -87,6 +88,9 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 
     await recordTaskCreated({ organizationId: membership.organizationId, actorId: user.id }, task);
 
+    // Notify the assignee if the task was created already assigned to someone else.
+    await notifyTaskAssigned({ organizationId: membership.organizationId, actor: user }, task);
+
     res.status(201).json({
       task,
     });
@@ -141,6 +145,14 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 
     await recordTaskChanges(
       { organizationId: membership.organizationId, actorId: user.id },
+      task,
+      updated,
+    );
+
+    // Notify the assignee of reassignment / status / priority changes made by
+    // someone other than themselves (the same before/after diff drives both).
+    await notifyTaskChanges(
+      { organizationId: membership.organizationId, actor: user },
       task,
       updated,
     );

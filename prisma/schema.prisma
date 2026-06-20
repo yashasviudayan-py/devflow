@@ -31,6 +31,8 @@ enum TaskPriority {
 
 enum NotificationType {
   TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_PRIORITY_CHANGED
   MENTION
   COMMENT_ADDED
   DUE_DATE_REMINDER
@@ -71,7 +73,8 @@ model User {
   reportedTasks           Task[]               @relation("TaskReporter")
   comments                Comment[]
   activityLogs            ActivityLog[]
-  notifications           Notification[]
+  notifications           Notification[]       @relation("NotificationRecipient")
+  triggeredNotifications  Notification[]       @relation("NotificationActor")
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
 }
@@ -183,14 +186,17 @@ model ActivityLog {
 model Notification {
   id        String           @id @default(cuid())
   userId    String
+  actorId   String?
   type      NotificationType
   title     String
   message   String
   readAt    DateTime?
   data      Json?
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
   @@index([userId, readAt])
+  @@index([actorId])
 }

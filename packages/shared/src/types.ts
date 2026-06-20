@@ -29,3 +29,19 @@ export type ActivityAction = (typeof activityActions)[number];
 
 export const activityEntityTypes = ["PROJECT", "TASK", "COMMENT"] as const;
 export type ActivityEntityType = (typeof activityEntityTypes)[number];
+
+// Notifications are created exclusively by the server in response to user events
+// (assignment, status/priority changes, comments), never from user input, so this
+// is a plain shared union rather than a Zod schema. It mirrors the
+// `NotificationType` enum in the Prisma schema. `MENTION`, `DUE_DATE_REMINDER`, and
+// `PROJECT_UPDATED` exist in the schema for future use but are not emitted yet.
+export const notificationTypes = [
+  "TASK_ASSIGNED",
+  "TASK_STATUS_CHANGED",
+  "TASK_PRIORITY_CHANGED",
+  "MENTION",
+  "COMMENT_ADDED",
+  "DUE_DATE_REMINDER",
+  "PROJECT_UPDATED",
+] as const;
+export type NotificationType = (typeof notificationTypes)[number];
