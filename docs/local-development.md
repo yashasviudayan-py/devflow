@@ -263,6 +263,32 @@ removes a notification.
 > notifications page — it does not live-update via polling or websockets yet (deferred to a future
 > PR). Reload the dashboard to refresh the bell after reading notifications elsewhere.
 
+## Search, Filtering, Sorting, and Pagination in the Web App
+
+The organization page (`/organizations/<id>`) and project page (`/projects/<id>`) add controls for
+searching, sorting, filtering, and paging their lists. The API uses **cursor pagination**
+(`limit` + `cursor` → `nextCursor`), so the UI shows **Previous/Next** with a current **page
+number** rather than a total/last-page count — there is no `total` to display.
+
+- **Filters live in the URL.** Search/sort/filter/page-size are written to the query string (e.g.
+  `/projects/<id>?q=bug&status=TODO&sortBy=dueDate&sortOrder=desc&limit=10`), so a filtered view is
+  shareable and survives a refresh. Changing any of them resets you to page 1.
+- **Page position is local.** The cursor is not stored in the URL (cursor pagination has no
+  shareable page number), so a **refresh restarts at page 1** while the filters persist.
+- **Search is debounced** (~300ms) so typing does not fire a request per keystroke.
+- **Empty states are distinct:** "nothing created yet" (with a create CTA) vs. "no matches" (with a
+  **Reset filters** button).
+- **The Kanban board is not paginated.** It fetches a single large page (the API max, 100 tasks) and
+  groups everything by status; paging a board would be confusing. A project with more than 100 tasks
+  shows the first 100 on the board (the task list view is the place to search/filter/page).
+
+To test manually: open an organization with several projects, search by name, change the sort and
+order, change **Per page** to 10, and use **Previous/Next** — the URL should update and a refresh
+should preserve the filters (returning to page 1). Open a project with several tasks and repeat with
+the task search plus the status/priority/assignee/unassigned and due-date filters; confirm **Reset
+filters** clears them, the filtered-empty state appears when nothing matches, and **Board view**
+still shows every task.
+
 ## Quality Checks
 
 Run these before opening a pull request:
