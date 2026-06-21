@@ -277,13 +277,31 @@ describe("organization api client", () => {
 
 describe("project api client", () => {
   it("lists an organization's projects with credentials included", async () => {
-    const fetchMock = mockFetchResponse(200, { projects: [testProject] });
+    const fetchMock = mockFetchResponse(200, { projects: [testProject], nextCursor: null });
 
-    const projects = await getOrganizationProjects("org-1");
+    const page = await getOrganizationProjects("org-1");
 
-    expect(projects).toEqual([testProject]);
+    expect(page.projects).toEqual([testProject]);
+    expect(page.nextCursor).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4000/organizations/org-1/projects",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("forwards project search, sort, and pagination params", async () => {
+    const fetchMock = mockFetchResponse(200, { projects: [], nextCursor: null });
+
+    await getOrganizationProjects("org-1", {
+      q: "api",
+      sortBy: "name",
+      sortOrder: "asc",
+      limit: 10,
+      cursor: "cursor-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/organizations/org-1/projects?q=api&limit=10&cursor=cursor-1&sortBy=name&sortOrder=asc",
       expect.objectContaining({ credentials: "include" }),
     );
   });
@@ -365,9 +383,10 @@ describe("task api client", () => {
   it("lists a project's tasks with credentials included", async () => {
     const fetchMock = mockFetchResponse(200, { tasks: [testTask], nextCursor: null });
 
-    const tasks = await getProjectTasks("project-1");
+    const page = await getProjectTasks("project-1");
 
-    expect(tasks).toEqual([testTask]);
+    expect(page.tasks).toEqual([testTask]);
+    expect(page.nextCursor).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4000/projects/project-1/tasks",
       expect.objectContaining({ credentials: "include" }),
@@ -381,6 +400,39 @@ describe("task api client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4000/projects/project-1/tasks?status=IN_PROGRESS&assigneeId=user-2",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("forwards search, due-date, unassigned, sort, and pagination params", async () => {
+    const fetchMock = mockFetchResponse(200, { tasks: [], nextCursor: null });
+
+    await getProjectTasks("project-1", {
+      q: "bug",
+      status: "IN_PROGRESS",
+      priority: "HIGH",
+      unassigned: true,
+      dueAfter: "2026-01-01",
+      dueBefore: "2026-12-31",
+      sortBy: "dueDate",
+      sortOrder: "desc",
+      limit: 50,
+      cursor: "cursor-2",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/projects/project-1/tasks?q=bug&status=IN_PROGRESS&priority=HIGH&unassigned=true&dueBefore=2026-12-31&dueAfter=2026-01-01&limit=50&cursor=cursor-2&sortBy=dueDate&sortOrder=desc",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("omits unassigned when false", async () => {
+    const fetchMock = mockFetchResponse(200, { tasks: [], nextCursor: null });
+
+    await getProjectTasks("project-1", { unassigned: false, assigneeId: "user-2" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/projects/project-1/tasks?assigneeId=user-2",
       expect.objectContaining({ credentials: "include" }),
     );
   });
