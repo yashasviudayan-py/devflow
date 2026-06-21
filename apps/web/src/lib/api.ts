@@ -8,7 +8,6 @@ import type {
   LoginInput,
   NotificationType,
   SignupInput,
-  TaskFilterInput,
   TaskPriority,
   TaskStatus,
   UpdateCommentInput,
@@ -16,6 +15,12 @@ import type {
   UpdateTaskInput,
   UserRole,
 } from "@devflow/shared";
+import {
+  buildQueryString,
+  type ProjectSortField,
+  type SortOrder,
+  type TaskSortField,
+} from "@/lib/listQuery";
 
 export type AuthUser = {
   id: string;
@@ -251,12 +256,35 @@ export async function getOrganizationMembers(
   return data.members;
 }
 
-export async function getOrganizationProjects(organizationId: string): Promise<Project[]> {
-  const data = await request<{ projects: Project[] }>(
-    `/organizations/${organizationId}/projects`,
-  );
+// Cursor-paginated list envelope returned by the project/task list endpoints.
+// `nextCursor` is null on the final page; pass it back as `cursor` for the next.
+export type ProjectsPage = {
+  projects: Project[];
+  nextCursor: string | null;
+};
 
-  return data.projects;
+export type ListProjectsParams = {
+  q?: string;
+  limit?: number;
+  cursor?: string;
+  sortBy?: ProjectSortField;
+  sortOrder?: SortOrder;
+};
+
+export async function getOrganizationProjects(
+  organizationId: string,
+  params: ListProjectsParams = {},
+): Promise<ProjectsPage> {
+  // Empty params are omitted by buildQueryString, so a bare call sends no query.
+  const query = buildQueryString({
+    q: params.q,
+    limit: params.limit,
+    cursor: params.cursor,
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder,
+  });
+
+  return request<ProjectsPage>(`/organizations/${organizationId}/projects${query}`);
 }
 
 export async function createProject(
@@ -299,29 +327,47 @@ export async function deleteProject(projectId: string): Promise<void> {
   });
 }
 
+export type TasksPage = {
+  tasks: Task[];
+  nextCursor: string | null;
+};
+
+export type ListTasksParams = {
+  q?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  assigneeId?: string;
+  unassigned?: boolean;
+  // ISO date strings (the API accepts `YYYY-MM-DD` and coerces to a Date).
+  dueBefore?: string;
+  dueAfter?: string;
+  limit?: number;
+  cursor?: string;
+  sortBy?: TaskSortField;
+  sortOrder?: SortOrder;
+};
+
 export async function getProjectTasks(
   projectId: string,
-  filters: TaskFilterInput = {},
-): Promise<Task[]> {
-  // The API validates these filter values; we only forward the ones that are set.
-  const params = new URLSearchParams();
-  if (filters.status) {
-    params.set("status", filters.status);
-  }
-  if (filters.priority) {
-    params.set("priority", filters.priority);
-  }
-  if (filters.assigneeId) {
-    params.set("assigneeId", filters.assigneeId);
-  }
+  params: ListTasksParams = {},
+): Promise<TasksPage> {
+  // The API validates each value; buildQueryString forwards only the ones set.
+  // `unassigned` is sent only when true (the API ignores `unassigned=false`).
+  const query = buildQueryString({
+    q: params.q,
+    status: params.status,
+    priority: params.priority,
+    assigneeId: params.assigneeId,
+    unassigned: params.unassigned ? "true" : undefined,
+    dueBefore: params.dueBefore,
+    dueAfter: params.dueAfter,
+    limit: params.limit,
+    cursor: params.cursor,
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder,
+  });
 
-  const query = params.toString();
-  // The list endpoint is paginated; the UI shows the first page for now.
-  const data = await request<{ tasks: Task[]; nextCursor: string | null }>(
-    `/projects/${projectId}/tasks${query ? `?${query}` : ""}`,
-  );
-
-  return data.tasks;
+  return request<TasksPage>(`/projects/${projectId}/tasks${query}`);
 }
 
 export async function createTask(projectId: string, input: CreateTaskInput): Promise<Task> {
