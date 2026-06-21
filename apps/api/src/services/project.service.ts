@@ -1,7 +1,8 @@
-import type { CreateProjectInput, PaginationQuery, UpdateProjectInput } from "@devflow/shared";
+import type { CreateProjectInput, ListProjectsQuery, UpdateProjectInput } from "@devflow/shared";
 import { Prisma } from "@prisma/client";
 import { toCursorArgs, toPage } from "../lib/pagination.js";
 import { prisma } from "../lib/prisma.js";
+import { normalizeSearchQuery, parseSortParams } from "../lib/query.js";
 
 const projectSelect = {
   id: true,
@@ -34,20 +35,35 @@ export async function createProject(
   });
 }
 
-export async function listProjects(organizationId: string, pagination: PaginationQuery = {}) {
-  // Archived projects are soft-deleted, so they are excluded from the default listing.
+export async function listProjects(organizationId: string, query: ListProjectsQuery = {}) {
+  const search = normalizeSearchQuery(query.q);
+  const { field, order } = parseSortParams(query, { field: "createdAt" });
+
+  const where: Prisma.ProjectWhereInput = {
+    organizationId,
+    // Archived projects are soft-deleted, so they are excluded from the default listing.
+    archivedAt: null,
+    // Case-insensitive substring match across name and (when present) description.
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
   const rows = await prisma.project.findMany({
-    where: {
-      organizationId,
-      archivedAt: null,
-    },
-    // `id` is a stable tiebreaker so cursor pagination never skips/duplicates rows.
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    ...toCursorArgs(pagination),
+    where,
+    // `field` comes from a validated allow-list (listProjectsQuerySchema); `id` is a
+    // stable tiebreaker so cursor pagination never skips/duplicates rows.
+    orderBy: [{ [field]: order } as Prisma.ProjectOrderByWithRelationInput, { id: order }],
+    ...toCursorArgs(query),
     select: projectSelect,
   });
 
-  return toPage(rows, pagination);
+  return toPage(rows, query);
 }
 
 export async function getProjectById(projectId: string): Promise<ProjectRecord | null> {

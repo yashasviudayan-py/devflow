@@ -32,6 +32,27 @@ every collection the same way.
 Example: `GET /organizations/:organizationId/projects?limit=2&cursor=clx123` returns up to two
 projects after `clx123` and a `nextCursor` for the following page.
 
+### Searching, filtering, and sorting
+
+The project and task list endpoints layer optional search, filter, and sort parameters on top of the
+shared pagination contract — the response envelope is unchanged (`{ items, nextCursor }`). All
+parameters are validated by per-resource Zod schemas (`listProjectsQuerySchema`,
+`listTasksQuerySchema`), and any invalid value responds with `400`.
+
+- **Search (`q`)** — case-insensitive substring match (`ILIKE`-style) across the resource's text
+  fields. Trimmed and capped at 200 characters; an empty/whitespace value is ignored.
+- **Sorting (`sortBy`, `sortOrder`)** — `sortBy` is restricted to a per-resource allow-list (so an
+  arbitrary column can never reach Prisma's `orderBy`); `sortOrder` is `asc` or `desc`. The chosen
+  field is always paired with an `id` tiebreaker to keep cursor paging stable. When omitted, results
+  default to `createdAt` ascending, matching the previous behavior.
+- **Filters** combine with `AND`: a row must satisfy every supplied filter (and the search term).
+
+Why offset pagination was not used: numbered-page metadata (`total`, `totalPages`) requires a
+`COUNT(*)` per request and is prone to skipped/duplicated rows when data changes between page loads.
+Cursor pagination avoids both, which is why it is the established convention here. Cursor pagination
+is also the better fit as datasets grow; offset/`page` can be revisited later if a numbered-page UI
+is ever required.
+
 ## Initial Routes
 
 | Method | Route     | Purpose                    |
@@ -224,7 +245,14 @@ Responds with `201`:
 
 `GET /organizations/:organizationId/projects` returns `{ "projects": [...], "nextCursor": ... }` for
 members and accepts the shared `limit`/`cursor` pagination parameters. Archived projects are excluded
-by default.
+by default. It additionally accepts (validated by `listProjectsQuerySchema`):
+
+- `q` — case-insensitive search across project `name` and `description`.
+- `sortBy` — one of `name`, `createdAt`, `updatedAt` (default `createdAt`).
+- `sortOrder` — `asc` or `desc` (default `asc`).
+
+Example: `GET /organizations/:organizationId/projects?q=payments&sortBy=name&sortOrder=asc&limit=20`.
+An invalid `sortBy`/`sortOrder`/`limit` or an over-long `q` responds with `400`.
 
 `GET /projects/:projectId` returns `{ "project": { ... } }` for members of the owning organization.
 
@@ -291,14 +319,22 @@ never returned.
 
 `GET /projects/:projectId/tasks` returns `{ "tasks": [...], "nextCursor": ... }` for members and
 accepts the shared `limit`/`cursor` pagination parameters. Archived tasks are excluded by default.
-Optional query filters (validated with `taskFilterSchema`) narrow the results:
+Optional query parameters (validated with `listTasksQuerySchema`) search, filter, and sort the
+results. Filters combine with `AND`:
 
-- `status` — one of `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`, `CANCELED`
-- `priority` — one of `LOW`, `MEDIUM`, `HIGH`, `URGENT`
-- `assigneeId` — tasks assigned to a specific user
+- `q` — case-insensitive search across task `title` and `description`.
+- `status` — one of `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`, `CANCELED`.
+- `priority` — one of `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
+- `assigneeId` — tasks assigned to a specific user.
+- `unassigned` — `true`/`false`; when `true`, returns tasks with no assignee. Takes precedence over
+  `assigneeId`.
+- `dueAfter` / `dueBefore` — ISO dates bounding `dueDate` (inclusive `>=` / `<=`). Tasks with no due
+  date are excluded when either bound is supplied.
+- `sortBy` — one of `title`, `status`, `priority`, `dueDate`, `createdAt`, `updatedAt` (default
+  `createdAt`); `sortOrder` — `asc` or `desc` (default `asc`).
 
-Example: `GET /projects/:projectId/tasks?status=IN_PROGRESS&priority=HIGH`. An invalid filter value
-responds with `400`.
+Example: `GET /projects/:projectId/tasks?q=login&status=IN_PROGRESS&priority=HIGH&sortBy=dueDate`.
+An invalid filter, sort field, date, or boolean value responds with `400`.
 
 `GET /tasks/:taskId` returns `{ "task": { ... } }` for members of the owning organization.
 
@@ -491,7 +527,9 @@ you either own a notification or, as far as you can tell, it does not exist.
 
 `GET /notifications` returns the caller's notifications sorted **newest first** (`createdAt`
 descending, `id` tiebreaker) using the shared `limit`/`cursor` pagination convention
-(default `20`, max `100`):
+(default `20`, max `100`). It also accepts `unreadOnly` (`true`/`false`, validated by
+`listNotificationsQuerySchema`); when `true`, only unread notifications (`readAt = null`) are
+returned:
 
 ```json
 {

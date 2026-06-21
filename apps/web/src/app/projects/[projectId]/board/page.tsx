@@ -81,12 +81,14 @@ export default function ProjectBoardPage() {
     let isActive = true;
     setTasksError(null);
 
-    // The board shows the first page of tasks (the list endpoint is paginated,
-    // default 20), matching the project task list. Pagination is out of scope here.
-    getProjectTasks(projectId)
-      .then((loadedTasks) => {
+    // The board groups every task by status, so paging it would be confusing. We
+    // fetch a single large page (the API's max limit) instead of the default 20;
+    // a project with more than 100 tasks would show only the first 100, which is
+    // acceptable until board-level pagination/virtualization is needed.
+    getProjectTasks(projectId, { limit: 100 })
+      .then((page) => {
         if (isActive) {
-          setTasks(loadedTasks);
+          setTasks(page.tasks);
         }
       })
       .catch(() => {

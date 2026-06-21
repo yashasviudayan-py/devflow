@@ -1,4 +1,4 @@
-import { paginationQuerySchema } from "@devflow/shared";
+import { listNotificationsQuerySchema } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
@@ -34,8 +34,8 @@ function getAuthenticatedUser(req: Request) {
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const user = getAuthenticatedUser(req);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await getUserNotifications(user.id, pagination);
+    const query = listNotificationsQuerySchema.parse(req.query);
+    const { items, nextCursor } = await getUserNotifications(user.id, query);
 
     res.status(200).json({
       notifications: items,

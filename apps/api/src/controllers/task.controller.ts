@@ -1,9 +1,4 @@
-import {
-  createTaskSchema,
-  paginationQuerySchema,
-  taskFilterSchema,
-  updateTaskSchema,
-} from "@devflow/shared";
+import { createTaskSchema, listTasksQuerySchema, updateTaskSchema } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
 import {
   recordTaskArchived,
@@ -102,9 +97,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const project = getProject(req);
-    const filters = taskFilterSchema.parse(req.query);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listTasks(project.id, filters, pagination);
+    const query = listTasksQuerySchema.parse(req.query);
+    const { items, nextCursor } = await listTasks(project.id, query);
 
     res.status(200).json({
       tasks: items,

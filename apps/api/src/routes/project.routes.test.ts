@@ -195,6 +195,84 @@ describe("project routes", () => {
       expect(response.body.projects).toHaveLength(1);
       expect(response.body.projects[0].id).toBe(aliceProject.id);
     });
+
+    it("searches project name and description with q", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+
+      const byName = await createProject(owner.cookies, organization.id, {
+        name: "Payments revamp",
+      });
+      const byDescription = await createProject(owner.cookies, organization.id, {
+        name: "Internal tooling",
+        description: "Streamline the PAYMENTS dashboard",
+      });
+      await createProject(owner.cookies, organization.id, { name: "Marketing site" });
+
+      const response = await request(app)
+        .get(`/organizations/${organization.id}/projects?q=payments`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(200);
+      // Case-insensitive match across both name and description.
+      expect(response.body.projects.map((p: { id: string }) => p.id).sort()).toEqual(
+        [byName.id, byDescription.id].sort(),
+      );
+    });
+
+    it("sorts projects by name with sortOrder", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+
+      // Created out of alphabetical order so the sort is observable.
+      await createProject(owner.cookies, organization.id, { name: "Banana" });
+      await createProject(owner.cookies, organization.id, { name: "Cherry" });
+      await createProject(owner.cookies, organization.id, { name: "Apple" });
+
+      const asc = await request(app)
+        .get(`/organizations/${organization.id}/projects?sortBy=name&sortOrder=asc`)
+        .set("Cookie", owner.cookies);
+      expect(asc.body.projects.map((p: { name: string }) => p.name)).toEqual([
+        "Apple",
+        "Banana",
+        "Cherry",
+      ]);
+
+      const desc = await request(app)
+        .get(`/organizations/${organization.id}/projects?sortBy=name&sortOrder=desc`)
+        .set("Cookie", owner.cookies);
+      expect(desc.body.projects.map((p: { name: string }) => p.name)).toEqual([
+        "Cherry",
+        "Banana",
+        "Apple",
+      ]);
+    });
+
+    it("rejects an invalid sortBy with 400", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+
+      const response = await request(app)
+        .get(`/organizations/${organization.id}/projects?sortBy=description`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects a limit above the maximum with 400", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+
+      const response = await request(app)
+        .get(`/organizations/${organization.id}/projects?limit=101`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(400);
+    });
   });
 
   describe("GET /projects/:projectId", () => {

@@ -258,6 +258,35 @@ describe("notification routes", () => {
         .set("Cookie", member.cookies);
       expect(response.status).toBe(400);
     });
+
+    it("returns only unread notifications with unreadOnly=true", async () => {
+      const { owner, member, project } = await setupOrgWithMember();
+      const task = await createTask(owner.cookies, project.id, {
+        title: "Task",
+        assigneeId: member.id,
+      });
+      // A second notification so the member has two: assignment + priority change.
+      expect((await patchTask(owner.cookies, task.id, { priority: "HIGH" })).status).toBe(200);
+
+      const app = await getApp();
+      // Mark the newest (priority change) read, leaving one unread.
+      const all = await listNotifications(member.cookies);
+      const newestId = all.body.notifications[0].id as string;
+      await request(app)
+        .patch(`/notifications/${newestId}/read`)
+        .set("Cookie", member.cookies)
+        .expect(200);
+
+      const response = await request(app)
+        .get("/notifications?unreadOnly=true")
+        .set("Cookie", member.cookies);
+
+      expect(response.status).toBe(200);
+      const notifications = response.body.notifications as Notification[];
+      expect(notifications).toHaveLength(1);
+      expect(notifications.every((n) => n.readAt === null)).toBe(true);
+      expect(notifications[0].id).not.toBe(newestId);
+    });
   });
 
   describe("GET /notifications/unread-count", () => {

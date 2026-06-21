@@ -68,7 +68,10 @@ SetNull`, so a project survives (and keeps its history) even if its creator's ac
   the row, and listings exclude archived projects by default, which keeps a project's future tasks
   and activity recoverable.
 - `@@index([organizationId])` keeps per-organization listings fast, and `@@index([createdById])`
-  supports "projects I created" style lookups.
+  supports "projects I created" style lookups. The project list endpoint searches on `name`/
+  `description` and sorts on `name`, `createdAt`, or `updatedAt`; like tasks, these run over the
+  already-`organizationId`-scoped set, so no extra index was added (and `ILIKE` search would need a
+  `pg_trgm` index rather than a B-tree if it ever needs to scale).
 
 Projects do not have their own membership model. Authorization reuses `OrganizationMember`: a
 caller's access to a project is determined by their role in the organization that owns it. This
@@ -99,7 +102,24 @@ many tasks (`Project.tasks`).
   `@@index([assigneeId])` and `@@index([reporterId])` support "assigned to me" / "reported by me"
   lookups.
 
-Like projects, tasks have no membership model of their own. Authorization reuses
+### Fields used for filtering and sorting
+
+The task list endpoint (`GET /projects/:projectId/tasks`) filters on `status`, `priority`,
+`assigneeId` (and `assigneeId IS NULL` for `unassigned`), and a `dueDate` range, and sorts on
+`title`, `status`, `priority`, `dueDate`, `createdAt`, or `updatedAt`.
+
+No new indexes were added for these, deliberately:
+
+- Every task query is **already scoped to a single `projectId`**, so the leading column of
+  `@@index([projectId, status])` narrows to one project's tasks before any other predicate runs. The
+  remaining filtering/sorting happens over that small per-project set, where extra single-column
+  indexes (on `priority`, `dueDate`, …) would add write cost for little read benefit.
+- `q` search uses case-insensitive `contains` (`ILIKE '%term%'`), which a B-tree index cannot serve.
+  If search ever needs to scale, the right tool is a PostgreSQL `pg_trgm` GIN index (or a dedicated
+  search engine) — intentionally out of scope here.
+
+If a future numbered-page UI or cross-project task views arrive, revisit a composite such as
+`@@index([projectId, dueDate])` for due-date-sorted listings. Authorization reuses
 `OrganizationMember`: a caller's access to a task is determined by their role in the organization
 that owns the task's project (task → project → organization).
 

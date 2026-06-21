@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "./pagination.js";
 import { taskPriorities, taskStatuses } from "./types.js";
 
 const authEmailSchema = z
@@ -109,6 +110,67 @@ export const taskFilterSchema = z.object({
   assigneeId: taskUserIdSchema.optional(),
 });
 
+// ---------------------------------------------------------------------------
+// List query schemas (search + sort layered on top of cursor pagination)
+//
+// Every list endpoint already accepts `{ limit, cursor }` (paginationQuerySchema)
+// and returns `{ items, nextCursor }`. These schemas extend that contract with
+// optional search/sort/filter params. Unknown keys are stripped, and anything
+// that fails validation throws a ZodError the controllers turn into a 400.
+// ---------------------------------------------------------------------------
+
+// Free-text search shared by list endpoints. Trimmed and length-capped so a query
+// can never be unbounded; empty/whitespace is normalized to "no search" server-side.
+const searchQuerySchema = z
+  .string()
+  .trim()
+  .max(200, "Search query must be at most 200 characters.")
+  .optional();
+
+const sortOrderSchema = z.enum(["asc", "desc"]);
+
+// Query-string booleans arrive as the strings "true"/"false". We validate them
+// explicitly instead of using z.coerce.boolean(), which treats every non-empty
+// string (including "false") as `true`.
+const booleanQuerySchema = z.enum(["true", "false"]).transform((value) => value === "true");
+
+// `z.coerce.date()` accepts ISO date strings and yields a Date; invalid strings
+// fail validation and surface as a 400.
+const dateQuerySchema = z.coerce.date();
+
+// Sortable columns are an explicit allow-list. The service only ever builds an
+// `orderBy` from one of these values, so an arbitrary column name can never be
+// injected into the Prisma query.
+export const projectSortFields = ["name", "createdAt", "updatedAt"] as const;
+export const taskSortFields = [
+  "title",
+  "status",
+  "priority",
+  "dueDate",
+  "createdAt",
+  "updatedAt",
+] as const;
+
+export const listProjectsQuerySchema = paginationQuerySchema.extend({
+  q: searchQuerySchema,
+  sortBy: z.enum(projectSortFields).optional(),
+  sortOrder: sortOrderSchema.optional(),
+});
+
+export const listTasksQuerySchema = paginationQuerySchema.merge(taskFilterSchema).extend({
+  q: searchQuerySchema,
+  // Filter to tasks with no assignee. Takes precedence over `assigneeId`.
+  unassigned: booleanQuerySchema.optional(),
+  dueBefore: dateQuerySchema.optional(),
+  dueAfter: dateQuerySchema.optional(),
+  sortBy: z.enum(taskSortFields).optional(),
+  sortOrder: sortOrderSchema.optional(),
+});
+
+export const listNotificationsQuerySchema = paginationQuerySchema.extend({
+  unreadOnly: booleanQuerySchema.optional(),
+});
+
 // Comment bodies are free-form text. They are trimmed, must not be empty, and
 // are capped to keep payloads (and the eventual UI) reasonable.
 const commentBodySchema = z
@@ -165,5 +227,8 @@ export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type TaskFilterInput = z.infer<typeof taskFilterSchema>;
+export type ListProjectsQuery = z.infer<typeof listProjectsQuerySchema>;
+export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+export type ListNotificationsQuery = z.infer<typeof listNotificationsQuerySchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;
