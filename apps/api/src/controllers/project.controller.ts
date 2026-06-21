@@ -1,4 +1,4 @@
-import { createProjectSchema, paginationQuerySchema, updateProjectSchema } from "@devflow/shared";
+import { createProjectSchema, listProjectsQuerySchema, updateProjectSchema } from "@devflow/shared";
 import type { NextFunction, Request, Response } from "express";
 import {
   recordProjectArchived,
@@ -70,8 +70,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const membership = getMembership(req);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listProjects(membership.organizationId, pagination);
+    const query = listProjectsQuerySchema.parse(req.query);
+    const { items, nextCursor } = await listProjects(membership.organizationId, query);
 
     res.status(200).json({
       projects: items,

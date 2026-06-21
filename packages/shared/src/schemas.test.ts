@@ -4,6 +4,9 @@ import {
   createOrganizationSchema,
   createProjectSchema,
   createTaskSchema,
+  listNotificationsQuerySchema,
+  listProjectsQuerySchema,
+  listTasksQuerySchema,
   loginSchema,
   signupSchema,
   taskFilterSchema,
@@ -171,6 +174,103 @@ describe("taskFilterSchema", () => {
 
   it("rejects an invalid status filter", () => {
     expect(() => taskFilterSchema.parse({ status: "NOPE" })).toThrow();
+  });
+});
+
+describe("listProjectsQuerySchema", () => {
+  it("accepts search, sort, and pagination params", () => {
+    const parsed = listProjectsQuerySchema.parse({
+      q: "  redesign  ",
+      sortBy: "name",
+      sortOrder: "desc",
+      limit: "10",
+      cursor: "abc",
+    });
+
+    expect(parsed).toEqual({
+      q: "redesign",
+      sortBy: "name",
+      sortOrder: "desc",
+      limit: 10,
+      cursor: "abc",
+    });
+  });
+
+  it("accepts an empty query (all params optional)", () => {
+    expect(listProjectsQuerySchema.parse({})).toEqual({});
+  });
+
+  it("rejects a sortBy outside the allow-list", () => {
+    expect(() => listProjectsQuerySchema.parse({ sortBy: "description" })).toThrow();
+  });
+
+  it("rejects an invalid sortOrder", () => {
+    expect(() => listProjectsQuerySchema.parse({ sortOrder: "sideways" })).toThrow();
+  });
+
+  it("rejects a limit above the maximum", () => {
+    expect(() => listProjectsQuerySchema.parse({ limit: "101" })).toThrow();
+  });
+
+  it("rejects a search query that is too long", () => {
+    expect(() => listProjectsQuerySchema.parse({ q: "a".repeat(201) })).toThrow();
+  });
+});
+
+describe("listTasksQuerySchema", () => {
+  it("accepts filters, dates, sort, and pagination params", () => {
+    const parsed = listTasksQuerySchema.parse({
+      q: "bug",
+      status: "IN_REVIEW",
+      priority: "URGENT",
+      assigneeId: "user_1",
+      dueAfter: "2026-01-01T00:00:00.000Z",
+      dueBefore: "2026-12-31T00:00:00.000Z",
+      sortBy: "dueDate",
+      sortOrder: "asc",
+      limit: "25",
+    });
+
+    expect(parsed.status).toBe("IN_REVIEW");
+    expect(parsed.priority).toBe("URGENT");
+    expect(parsed.assigneeId).toBe("user_1");
+    expect(parsed.dueAfter).toBeInstanceOf(Date);
+    expect(parsed.dueBefore).toBeInstanceOf(Date);
+    expect(parsed.sortBy).toBe("dueDate");
+    expect(parsed.limit).toBe(25);
+  });
+
+  it("parses the unassigned boolean from its string form", () => {
+    expect(listTasksQuerySchema.parse({ unassigned: "true" }).unassigned).toBe(true);
+    expect(listTasksQuerySchema.parse({ unassigned: "false" }).unassigned).toBe(false);
+  });
+
+  it("rejects a non-boolean unassigned value", () => {
+    expect(() => listTasksQuerySchema.parse({ unassigned: "maybe" })).toThrow();
+  });
+
+  it("rejects an invalid due date", () => {
+    expect(() => listTasksQuerySchema.parse({ dueBefore: "not-a-date" })).toThrow();
+  });
+
+  it("rejects a sortBy outside the allow-list", () => {
+    expect(() => listTasksQuerySchema.parse({ sortBy: "assigneeId" })).toThrow();
+  });
+
+  it("rejects an invalid status filter", () => {
+    expect(() => listTasksQuerySchema.parse({ status: "NOPE" })).toThrow();
+  });
+});
+
+describe("listNotificationsQuerySchema", () => {
+  it("parses unreadOnly alongside pagination", () => {
+    const parsed = listNotificationsQuerySchema.parse({ unreadOnly: "true", limit: "5" });
+
+    expect(parsed).toEqual({ unreadOnly: true, limit: 5 });
+  });
+
+  it("rejects a non-boolean unreadOnly value", () => {
+    expect(() => listNotificationsQuerySchema.parse({ unreadOnly: "1" })).toThrow();
   });
 });
 

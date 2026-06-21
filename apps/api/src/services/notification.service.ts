@@ -1,4 +1,4 @@
-import type { NotificationType, PaginationQuery } from "@devflow/shared";
+import type { ListNotificationsQuery, NotificationType } from "@devflow/shared";
 import { Prisma } from "@prisma/client";
 import { toCursorArgs, toPage } from "../lib/pagination.js";
 import { prisma } from "../lib/prisma.js";
@@ -218,15 +218,16 @@ const notificationOrderBy: Prisma.NotificationOrderByWithRelationInput[] = [
   { id: "desc" },
 ];
 
-export async function getUserNotifications(userId: string, pagination: PaginationQuery = {}) {
+export async function getUserNotifications(userId: string, query: ListNotificationsQuery = {}) {
   const rows = await prisma.notification.findMany({
-    where: { userId },
+    // Always scoped to the owner; `unreadOnly` narrows to notifications not yet read.
+    where: { userId, ...(query.unreadOnly ? { readAt: null } : {}) },
     orderBy: notificationOrderBy,
-    ...toCursorArgs(pagination),
+    ...toCursorArgs(query),
     select: notificationSelect,
   });
 
-  return toPage(rows, pagination);
+  return toPage(rows, query);
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {

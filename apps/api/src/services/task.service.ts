@@ -1,12 +1,8 @@
-import type {
-  CreateTaskInput,
-  PaginationQuery,
-  TaskFilterInput,
-  UpdateTaskInput,
-} from "@devflow/shared";
+import type { CreateTaskInput, ListTasksQuery, UpdateTaskInput } from "@devflow/shared";
 import { Prisma } from "@prisma/client";
 import { toCursorArgs, toPage } from "../lib/pagination.js";
 import { prisma } from "../lib/prisma.js";
+import { normalizeSearchQuery, parseSortParams } from "../lib/query.js";
 
 // Only safe, public user fields are ever exposed on nested assignee/reporter
 // objects. `passwordHash` is intentionally absent and never selected here.
@@ -59,26 +55,53 @@ export async function createTask(projectId: string, reporterId: string, input: C
   });
 }
 
-export async function listTasks(
-  projectId: string,
-  filters: TaskFilterInput = {},
-  pagination: PaginationQuery = {},
-) {
-  // Archived tasks are soft-deleted, so they are excluded from the default listing.
+export async function listTasks(projectId: string, query: ListTasksQuery = {}) {
+  const search = normalizeSearchQuery(query.q);
+  const { field, order } = parseSortParams(query, { field: "createdAt" });
+
+  const where: Prisma.TaskWhereInput = {
+    projectId,
+    // Archived tasks are soft-deleted, so they are excluded from the default listing.
+    archivedAt: null,
+    // Each filter is an additional AND constraint on the project-scoped result set.
+    ...(query.status ? { status: query.status } : {}),
+    ...(query.priority ? { priority: query.priority } : {}),
+    // `unassigned` takes precedence over `assigneeId`: it matches tasks with no
+    // assignee, so a stray assigneeId passed alongside it is ignored.
+    ...(query.unassigned
+      ? { assigneeId: null }
+      : query.assigneeId
+        ? { assigneeId: query.assigneeId }
+        : {}),
+    ...(query.dueAfter || query.dueBefore
+      ? {
+          dueDate: {
+            ...(query.dueAfter ? { gte: query.dueAfter } : {}),
+            ...(query.dueBefore ? { lte: query.dueBefore } : {}),
+          },
+        }
+      : {}),
+    // Case-insensitive substring match across title and (when present) description.
+    ...(search
+      ? {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
   const rows = await prisma.task.findMany({
-    where: {
-      projectId,
-      archivedAt: null,
-      ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.priority ? { priority: filters.priority } : {}),
-      ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
-    },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    ...toCursorArgs(pagination),
+    where,
+    // `field` comes from a validated allow-list (listTasksQuerySchema); `id` is a
+    // stable tiebreaker so cursor pagination never skips/duplicates rows.
+    orderBy: [{ [field]: order } as Prisma.TaskOrderByWithRelationInput, { id: order }],
+    ...toCursorArgs(query),
     select: taskSelect,
   });
 
-  return toPage(rows, pagination);
+  return toPage(rows, query);
 }
 
 export async function getTaskWithOrganization(

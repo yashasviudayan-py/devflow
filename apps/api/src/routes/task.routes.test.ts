@@ -233,6 +233,142 @@ describe("task routes", () => {
       expect(page2.body.nextCursor).toBeNull();
     });
 
+    it("searches task title and description with q", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+      const project = await createProject(owner.cookies, organization.id);
+
+      const byTitle = await createTask(owner.cookies, project.id, { title: "Fix login bug" });
+      const byDescription = await createTask(owner.cookies, project.id, {
+        title: "Refactor auth",
+        description: "Resolve the LOGIN edge case",
+      });
+      await createTask(owner.cookies, project.id, { title: "Update docs" });
+
+      const response = await request(app)
+        .get(`/projects/${project.id}/tasks?q=login`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(200);
+      // Case-insensitive match across both title and description.
+      expect(response.body.tasks.map((t: { id: string }) => t.id).sort()).toEqual(
+        [byTitle.id, byDescription.id].sort(),
+      );
+    });
+
+    it("filters by assignee and by unassigned", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const assignee = await signupUser("Assignee Example", "assignee@example.com");
+      const organization = await createOrganization(owner.cookies);
+      const project = await createProject(owner.cookies, organization.id);
+      await addMember(organization.id, assignee.id, "MEMBER");
+
+      const assigned = await createTask(owner.cookies, project.id, {
+        title: "Assigned task",
+        assigneeId: assignee.id,
+      });
+      const unassigned = await createTask(owner.cookies, project.id, { title: "Unassigned task" });
+
+      const byAssignee = await request(app)
+        .get(`/projects/${project.id}/tasks?assigneeId=${assignee.id}`)
+        .set("Cookie", owner.cookies);
+      expect(byAssignee.body.tasks).toHaveLength(1);
+      expect(byAssignee.body.tasks[0].id).toBe(assigned.id);
+
+      const byUnassigned = await request(app)
+        .get(`/projects/${project.id}/tasks?unassigned=true`)
+        .set("Cookie", owner.cookies);
+      expect(byUnassigned.body.tasks).toHaveLength(1);
+      expect(byUnassigned.body.tasks[0].id).toBe(unassigned.id);
+    });
+
+    it("filters by due date range with dueBefore and dueAfter", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+      const project = await createProject(owner.cookies, organization.id);
+
+      await createTask(owner.cookies, project.id, {
+        title: "Early task",
+        dueDate: "2026-01-10T00:00:00.000Z",
+      });
+      const middle = await createTask(owner.cookies, project.id, {
+        title: "Middle task",
+        dueDate: "2026-06-15T00:00:00.000Z",
+      });
+      await createTask(owner.cookies, project.id, {
+        title: "Late task",
+        dueDate: "2026-12-20T00:00:00.000Z",
+      });
+
+      const response = await request(app)
+        .get(
+          `/projects/${project.id}/tasks?dueAfter=2026-03-01T00:00:00.000Z&dueBefore=2026-09-01T00:00:00.000Z`,
+        )
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body.tasks).toHaveLength(1);
+      expect(response.body.tasks[0].id).toBe(middle.id);
+    });
+
+    it("sorts tasks by title with sortOrder", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+      const project = await createProject(owner.cookies, organization.id);
+
+      await createTask(owner.cookies, project.id, { title: "Beta" });
+      await createTask(owner.cookies, project.id, { title: "Gamma" });
+      await createTask(owner.cookies, project.id, { title: "Alpha" });
+
+      const response = await request(app)
+        .get(`/projects/${project.id}/tasks?sortBy=title&sortOrder=asc`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.body.tasks.map((t: { title: string }) => t.title)).toEqual([
+        "Alpha",
+        "Beta",
+        "Gamma",
+      ]);
+    });
+
+    it("does not leak passwordHash in nested user data", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const assignee = await signupUser("Assignee Example", "assignee@example.com");
+      const organization = await createOrganization(owner.cookies);
+      const project = await createProject(owner.cookies, organization.id);
+      await addMember(organization.id, assignee.id, "MEMBER");
+
+      await createTask(owner.cookies, project.id, {
+        title: "Assigned task",
+        assigneeId: assignee.id,
+      });
+
+      const response = await request(app)
+        .get(`/projects/${project.id}/tasks`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(200);
+      expect(JSON.stringify(response.body)).not.toContain("passwordHash");
+    });
+
+    it("rejects an invalid sortBy with 400", async () => {
+      const app = await getApp();
+      const owner = await signupUser("Owner Example", "owner@example.com");
+      const organization = await createOrganization(owner.cookies);
+      const project = await createProject(owner.cookies, organization.id);
+
+      const response = await request(app)
+        .get(`/projects/${project.id}/tasks?sortBy=assigneeId`)
+        .set("Cookie", owner.cookies);
+
+      expect(response.status).toBe(400);
+    });
+
     it("rejects a non-member with 404", async () => {
       const app = await getApp();
       const owner = await signupUser("Owner Example", "owner@example.com");
