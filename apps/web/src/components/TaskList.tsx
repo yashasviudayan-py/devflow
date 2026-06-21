@@ -6,22 +6,11 @@ type EmptyTasksStateProps = {
   projectId: string;
   // Only members who can create tasks (OWNER/ADMIN/MEMBER) see the CTA.
   canCreate: boolean;
-  // True when filters are active but match nothing, vs. no tasks at all.
-  isFiltered: boolean;
 };
 
-export function EmptyTasksState({ projectId, canCreate, isFiltered }: EmptyTasksStateProps) {
-  if (isFiltered) {
-    return (
-      <div className="rounded-md border border-dashed border-neutral-300 bg-white px-6 py-12 text-center">
-        <h3 className="text-base font-semibold text-neutral-950">No matching tasks</h3>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-neutral-600">
-          No tasks match the current filters. Try clearing them.
-        </p>
-      </div>
-    );
-  }
-
+// Shown when a project has no tasks at all. The "no tasks match the filters"
+// case is handled separately by EmptyFilteredState.
+export function EmptyTasksState({ projectId, canCreate }: EmptyTasksStateProps) {
   return (
     <div className="rounded-md border border-dashed border-neutral-300 bg-white px-6 py-12 text-center">
       <h3 className="text-base font-semibold text-neutral-950">No tasks yet</h3>
