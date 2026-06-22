@@ -7,6 +7,8 @@ import type { TaskRecord } from "../services/task.service.js";
 declare global {
   namespace Express {
     interface Request {
+      // Per-request correlation id, set by the requestContext middleware.
+      id?: string;
       user?: SafeUser;
       organizationMembership?: OrganizationMembership;
       project?: ProjectRecord;
