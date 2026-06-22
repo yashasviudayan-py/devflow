@@ -8,6 +8,7 @@ import {
   deleteNotification,
   deleteProject,
   getApiBaseUrl,
+  getApiErrorMessage,
   getCurrentUser,
   getNotifications,
   getUnreadNotificationCount,
@@ -742,5 +743,89 @@ describe("notification api client", () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).statusCode).toBe(404);
+  });
+});
+
+describe("standard error shape parsing", () => {
+  it("parses the code, details, and requestId from a validation error", async () => {
+    mockFetchResponse(400, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid request body",
+        statusCode: 400,
+        details: [{ field: "email", message: "Email must be a valid email address." }],
+        requestId: "req-123",
+      },
+    });
+
+    const error = (await signup({
+      name: "Y",
+      email: "bad",
+      password: "short",
+    }).catch((caught: unknown) => caught)) as ApiError;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.code).toBe("VALIDATION_ERROR");
+    expect(error.statusCode).toBe(400);
+    expect(error.requestId).toBe("req-123");
+    expect(error.details).toEqual([
+      { field: "email", message: "Email must be a valid email address." },
+    ]);
+  });
+
+  it("leaves code and details undefined for a non-JSON error body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.reject(new Error("invalid json")),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const error = (await getCurrentUser().catch((caught: unknown) => caught)) as ApiError;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.message).toBe("Something went wrong.");
+    expect(error.code).toBeUndefined();
+    expect(error.details).toBeUndefined();
+  });
+
+  it.each([
+    [401, "UNAUTHORIZED"],
+    [403, "FORBIDDEN"],
+    [404, "NOT_FOUND"],
+  ] as const)("parses the %i %s code cleanly", async (status, code) => {
+    mockFetchResponse(status, { error: { code, message: "Nope", statusCode: status } });
+
+    const error = (await getCurrentUser().catch((caught: unknown) => caught)) as ApiError;
+
+    expect(error.statusCode).toBe(status);
+    expect(error.code).toBe(code);
+  });
+});
+
+describe("getApiErrorMessage", () => {
+  it("joins validation detail messages into a friendly string", () => {
+    const error = new ApiError("Invalid request body", 400, {
+      code: "VALIDATION_ERROR",
+      details: [
+        { field: "name", message: "Name must be at least 2 characters." },
+        { field: "email", message: "Email must be a valid email address." },
+      ],
+    });
+
+    expect(getApiErrorMessage(error)).toBe(
+      "Name must be at least 2 characters. Email must be a valid email address.",
+    );
+  });
+
+  it("falls back to the API message for non-validation errors", () => {
+    const error = new ApiError("Invalid credentials", 401, { code: "UNAUTHORIZED" });
+
+    expect(getApiErrorMessage(error)).toBe("Invalid credentials");
+  });
+
+  it("returns a generic message for unknown throwables", () => {
+    expect(getApiErrorMessage("a string")).toBe("Something went wrong.");
+    expect(getApiErrorMessage(new Error(""))).toBe("Something went wrong.");
   });
 });
