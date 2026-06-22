@@ -15,6 +15,42 @@ The DevFlow API starts as a REST API. It should remain predictable, boring, and 
 - Return stable error shapes from centralized error middleware.
 - Keep authentication route work small and use shared auth validation schemas.
 
+## Error Responses
+
+Every error — validation, auth, not-found, conflict, or an unexpected failure — is returned by the
+centralized error middleware in a single, stable shape:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request body",
+    "statusCode": 400,
+    "details": [{ "field": "email", "message": "Email must be a valid email address." }],
+    "requestId": "f0c1…"
+  }
+}
+```
+
+- **`code`** — a stable, machine-readable identifier. Clients should branch on this rather than on
+  `message` (which is free to change). One of: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`,
+  `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`, `INTERNAL_SERVER_ERROR`.
+- **`message`** — a safe, human-readable summary. For server errors (`500`) it is always the generic
+  `"Internal server error"` — internal details are never leaked to the client.
+- **`statusCode`** — mirrors the HTTP status, retained for convenience/backward compatibility.
+- **`details`** — present only for `VALIDATION_ERROR`. An array of `{ field, message }` describing each
+  failed field (derived from the Zod schema). The top-level object reports the field `"(root)"`.
+- **`requestId`** — the per-request correlation id (also returned in the `X-Request-Id` response
+  header). Quote it when reporting a problem so the matching server log line can be found.
+
+Default code-by-status mapping: `400 → BAD_REQUEST`, `401 → UNAUTHORIZED`, `403 → FORBIDDEN`,
+`404 → NOT_FOUND`, `409 → CONFLICT`, `500 → INTERNAL_SERVER_ERROR`. Validation failures override this
+with `VALIDATION_ERROR` (still HTTP `400`).
+
+A stack trace is **never** included in production responses. In local development (`NODE_ENV=development`)
+an unexpected error additionally carries an `error.stack` field to aid debugging; it is omitted in
+`test` and `production`.
+
 ## Pagination
 
 All list endpoints use cursor pagination with a single, shared convention so clients can treat
@@ -354,12 +390,12 @@ derived entirely from the caller's membership in the organization that owns the 
 (comment → task → project → organization) — there is no separate comment membership. All comment
 routes require an authenticated user.
 
-| Method | Route                        | Access                          |
-| ------ | ---------------------------- | ------------------------------- |
-| POST   | `/tasks/:taskId/comments`    | OWNER, ADMIN, MEMBER            |
-| GET    | `/tasks/:taskId/comments`    | Member (any role)               |
-| PATCH  | `/comments/:commentId`       | Comment author                  |
-| DELETE | `/comments/:commentId`       | Comment author, or OWNER/ADMIN  |
+| Method | Route                     | Access                         |
+| ------ | ------------------------- | ------------------------------ |
+| POST   | `/tasks/:taskId/comments` | OWNER, ADMIN, MEMBER           |
+| GET    | `/tasks/:taskId/comments` | Member (any role)              |
+| PATCH  | `/comments/:commentId`    | Comment author                 |
+| DELETE | `/comments/:commentId`    | Comment author, or OWNER/ADMIN |
 
 The create and list routes are nested under the task, so the existing
 `requireTaskOrganizationMember` / `requireTaskOrganizationRole` middleware applies directly. The
@@ -419,10 +455,10 @@ and comment actions are recorded automatically by the API — **there is no endp
 clients to create activity logs**, and the recorded events do not accept user-supplied
 fields. Two read-only feeds expose the trail.
 
-| Method | Route                            | Access            |
-| ------ | -------------------------------- | ----------------- |
-| GET    | `/tasks/:taskId/activity`        | Member (any role) |
-| GET    | `/projects/:projectId/activity`  | Member (any role) |
+| Method | Route                           | Access            |
+| ------ | ------------------------------- | ----------------- |
+| GET    | `/tasks/:taskId/activity`       | Member (any role) |
+| GET    | `/projects/:projectId/activity` | Member (any role) |
 
 Both routes are nested under their parent resource and reuse the existing access
 middleware, so authorization is identical to reading the task or project itself:
@@ -476,21 +512,21 @@ it is the now-deleted comment's id, stored as a plain string so the log survives
 delete). `metadata` is a small JSON object whose shape depends on the action — it stores
 useful old/new values only, and never sensitive data:
 
-| Action                  | When                                | Example metadata                                  |
-| ----------------------- | ----------------------------------- | ------------------------------------------------- |
-| `PROJECT_CREATED`       | Project created                     | `{ "name": "Website redesign" }`                  |
-| `PROJECT_UPDATED`       | Project patched                     | `{ "changes": { "name": { "from": "A", "to": "B" } } }` |
-| `PROJECT_ARCHIVED`      | Project archived (DELETE)           | `{ "name": "Website redesign" }`                  |
-| `TASK_CREATED`          | Task created                        | `{ "title": "...", "status": "TODO", "priority": "MEDIUM" }` |
-| `TASK_UPDATED`          | Title/description/due date edited   | `{ "changes": { "title": { "from": "A", "to": "B" }, "description": { "changed": true } } }` |
-| `TASK_STATUS_CHANGED`   | Status changed                      | `{ "from": "TODO", "to": "IN_PROGRESS" }`         |
-| `TASK_PRIORITY_CHANGED` | Priority changed                    | `{ "from": "MEDIUM", "to": "HIGH" }`              |
-| `TASK_ASSIGNED`         | Assignee set/changed                | `{ "from": null, "to": "clxUser..." }`            |
-| `TASK_UNASSIGNED`       | Assignee cleared                    | `{ "from": "clxUser..." }`                        |
-| `TASK_ARCHIVED`         | Task archived (DELETE or PATCH)     | `{ "title": "..." }`                              |
-| `COMMENT_CREATED`       | Comment posted                      | _none_                                            |
-| `COMMENT_UPDATED`       | Comment edited                      | _none_                                            |
-| `COMMENT_DELETED`       | Comment deleted                     | _none_                                            |
+| Action                  | When                              | Example metadata                                                                             |
+| ----------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `PROJECT_CREATED`       | Project created                   | `{ "name": "Website redesign" }`                                                             |
+| `PROJECT_UPDATED`       | Project patched                   | `{ "changes": { "name": { "from": "A", "to": "B" } } }`                                      |
+| `PROJECT_ARCHIVED`      | Project archived (DELETE)         | `{ "name": "Website redesign" }`                                                             |
+| `TASK_CREATED`          | Task created                      | `{ "title": "...", "status": "TODO", "priority": "MEDIUM" }`                                 |
+| `TASK_UPDATED`          | Title/description/due date edited | `{ "changes": { "title": { "from": "A", "to": "B" }, "description": { "changed": true } } }` |
+| `TASK_STATUS_CHANGED`   | Status changed                    | `{ "from": "TODO", "to": "IN_PROGRESS" }`                                                    |
+| `TASK_PRIORITY_CHANGED` | Priority changed                  | `{ "from": "MEDIUM", "to": "HIGH" }`                                                         |
+| `TASK_ASSIGNED`         | Assignee set/changed              | `{ "from": null, "to": "clxUser..." }`                                                       |
+| `TASK_UNASSIGNED`       | Assignee cleared                  | `{ "from": "clxUser..." }`                                                                   |
+| `TASK_ARCHIVED`         | Task archived (DELETE or PATCH)   | `{ "title": "..." }`                                                                         |
+| `COMMENT_CREATED`       | Comment posted                    | _none_                                                                                       |
+| `COMMENT_UPDATED`       | Comment edited                    | _none_                                                                                       |
+| `COMMENT_DELETED`       | Comment deleted                   | _none_                                                                                       |
 
 A single `PATCH /tasks/:taskId` can record several events at once (for example a status
 change and a priority change), each with its own metadata. Task descriptions can be long,
@@ -512,13 +548,13 @@ notification belongs to exactly one recipient (`userId`), so authorization is si
 caller is the owner". All routes require an authenticated user, and every query is scoped to
 the authenticated user's id.
 
-| Method | Route                              | Access            |
-| ------ | ---------------------------------- | ----------------- |
-| GET    | `/notifications`                   | Owner (self)      |
-| GET    | `/notifications/unread-count`      | Owner (self)      |
-| PATCH  | `/notifications/read-all`          | Owner (self)      |
-| PATCH  | `/notifications/:notificationId/read` | Owner (self)   |
-| DELETE | `/notifications/:notificationId`   | Owner (self)      |
+| Method | Route                                 | Access       |
+| ------ | ------------------------------------- | ------------ |
+| GET    | `/notifications`                      | Owner (self) |
+| GET    | `/notifications/unread-count`         | Owner (self) |
+| PATCH  | `/notifications/read-all`             | Owner (self) |
+| PATCH  | `/notifications/:notificationId/read` | Owner (self) |
+| DELETE | `/notifications/:notificationId`      | Owner (self) |
 
 Unauthenticated requests get `401`. A notification that does not exist **or** belongs to
 another user returns `404` — a wrong id and a foreign id are indistinguishable to the caller,
@@ -578,12 +614,12 @@ succeeded. Creation is **best-effort**: a failed notification write is logged se
 swallowed so it never turns a successful task/comment mutation into an error (the same policy
 as activity logs). The actor is never notified about their own action.
 
-| `type`                  | Created when                                          | Recipient(s)                         |
-| ----------------------- | ---------------------------------------------------- | ------------------------------------ |
-| `TASK_ASSIGNED`         | A task is created assigned to, or reassigned to, a user other than the actor | The (new) assignee     |
-| `TASK_STATUS_CHANGED`   | Someone other than the assignee changes a task's status   | The current assignee            |
-| `TASK_PRIORITY_CHANGED` | Someone other than the assignee changes a task's priority | The current assignee            |
-| `COMMENT_ADDED`         | Someone comments on a task                            | The task's assignee and reporter (creator), excluding the comment author |
+| `type`                  | Created when                                                                 | Recipient(s)                                                             |
+| ----------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `TASK_ASSIGNED`         | A task is created assigned to, or reassigned to, a user other than the actor | The (new) assignee                                                       |
+| `TASK_STATUS_CHANGED`   | Someone other than the assignee changes a task's status                      | The current assignee                                                     |
+| `TASK_PRIORITY_CHANGED` | Someone other than the assignee changes a task's priority                    | The current assignee                                                     |
+| `COMMENT_ADDED`         | Someone comments on a task                                                   | The task's assignee and reporter (creator), excluding the comment author |
 
 `data` carries `{ taskId, projectId, organizationId }` plus, where relevant, the `from`/`to`
 values (status/priority changes) or the `commentId` (comments). The `MENTION`,
@@ -597,6 +633,6 @@ both assignee and reporter only once, and self-notifications are suppressed ever
 
 ## Future Route Ideas
 
-| Method | Route                              | Purpose                          |
-| ------ | ---------------------------------- | -------------------------------- |
-| POST   | `/tasks/:taskId/comments/:id/...`  | Threaded replies / reactions     |
+| Method | Route                             | Purpose                      |
+| ------ | --------------------------------- | ---------------------------- |
+| POST   | `/tasks/:taskId/comments/:id/...` | Threaded replies / reactions |

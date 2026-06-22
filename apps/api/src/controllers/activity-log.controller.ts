@@ -1,24 +1,8 @@
 import { paginationQuerySchema } from "@devflow/shared";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { HttpError } from "../middleware/error.middleware.js";
-import {
-  listProjectActivity,
-  listTaskActivity,
-} from "../services/activity-log.service.js";
-
-function isValidationError(error: unknown) {
-  return error instanceof Error && error.name === "ZodError";
-}
-
-function handleControllerError(error: unknown, next: NextFunction) {
-  if (isValidationError(error)) {
-    // Pagination query params are the only user-controlled input here.
-    next(new HttpError("Invalid query parameters", 400));
-    return;
-  }
-
-  next(error);
-}
+import { listProjectActivity, listTaskActivity } from "../services/activity-log.service.js";
+import { asyncHandler } from "../utils/async-handler.js";
 
 function getTask(req: Request) {
   if (!req.task) {
@@ -36,34 +20,26 @@ function getProject(req: Request) {
   return req.project;
 }
 
-export async function getTaskActivity(req: Request, res: Response, next: NextFunction) {
-  try {
-    // Membership/access has already been enforced by `requireTaskOrganizationMember`,
-    // which also cached the resolved task on the request.
-    const task = getTask(req);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listTaskActivity(task.id, pagination);
+export const getTaskActivity = asyncHandler(async (req: Request, res: Response) => {
+  // Membership/access has already been enforced by `requireTaskOrganizationMember`,
+  // which also cached the resolved task on the request.
+  const task = getTask(req);
+  const pagination = paginationQuerySchema.parse(req.query);
+  const { items, nextCursor } = await listTaskActivity(task.id, pagination);
 
-    res.status(200).json({
-      activity: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    activity: items,
+    nextCursor,
+  });
+});
 
-export async function getProjectActivity(req: Request, res: Response, next: NextFunction) {
-  try {
-    const project = getProject(req);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listProjectActivity(project.id, pagination);
+export const getProjectActivity = asyncHandler(async (req: Request, res: Response) => {
+  const project = getProject(req);
+  const pagination = paginationQuerySchema.parse(req.query);
+  const { items, nextCursor } = await listProjectActivity(project.id, pagination);
 
-    res.status(200).json({
-      activity: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    activity: items,
+    nextCursor,
+  });
+});

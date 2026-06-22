@@ -242,12 +242,12 @@ automatically by the API; there is no create UI.
   fetches `GET /notifications/unread-count` on load and shows a small badge when you have unread
   notifications. Clicking it opens the notifications page.
 - `http://localhost:3000/notifications` lists your notifications newest-first (`GET
-  /notifications`). Each row shows the actor, a title/message, a timestamp, an unread indicator,
+/notifications`). Each row shows the actor, a title/message, a timestamp, an unread indicator,
   and — when the notification has enough metadata — a **View** link to the related task, project,
   or organization. The page handles loading, empty, and error states.
 - **Mark read** marks a single notification read (`PATCH /notifications/<id>/read`); **Mark all as
   read** clears them all (`PATCH /notifications/read-all`); **Delete** removes one (`DELETE
-  /notifications/<id>`, after a confirm). The unread summary updates locally after each action
+/notifications/<id>`, after a confirm). The unread summary updates locally after each action
   without a refetch.
 
 You only ever see your own notifications: every endpoint is scoped to the signed-in user, and the
@@ -288,6 +288,71 @@ should preserve the filters (returning to page 1). Open a project with several t
 the task search plus the status/priority/assignee/unassigned and due-date filters; confirm **Reset
 filters** clears them, the filtered-empty state appears when nothing matches, and **Board view**
 still shows every task.
+
+## Logging, Errors, and Debugging
+
+The API emits **one structured JSON log line per request** (and per unexpected error), so logs are
+both human-skimmable and machine-parseable without a logging framework. Logs are silenced when
+`NODE_ENV=test` so the test output stays clean.
+
+A request log line looks like:
+
+```json
+{
+  "level": "info",
+  "time": "2026-06-23T…",
+  "message": "request",
+  "requestId": "f0c1…",
+  "method": "POST",
+  "path": "/auth/login",
+  "statusCode": 200,
+  "durationMs": 12.4
+}
+```
+
+- **What is logged:** method, path (including non-sensitive query params), status code, duration, and
+  the request id. **Never logged:** request bodies, headers, cookies, passwords, tokens, or JWTs. The
+  logger also redacts any `password`/`token`/`authorization`/`cookie`/`jwt` key passed by accident.
+- **Request id:** every response carries an `X-Request-Id` header. If the client (or a proxy) sends
+  one, it is reused; otherwise a UUID is generated. The same id appears in the request log, in error
+  logs, and in the `requestId` field of error responses — so a user-reported error can be matched to
+  its exact server log line.
+- **Unexpected errors** (anything that is not an expected `AppError`/validation error, plus any `5xx`)
+  are logged at `error` level with the request context and the original stack — while the client only
+  ever sees the masked `"Internal server error"`. Expected operational errors (400/401/403/404/409)
+  are not double-logged; the per-request line already records them.
+
+To read the logs locally, just run `pnpm dev:api` and watch the terminal. Pipe through `jq` for
+pretty output, e.g. `pnpm dev:api | npx pino-pretty` is not required, but `… | jq .` works since each
+line is valid JSON.
+
+### Environment validation
+
+The API validates its environment **at startup** (`apps/api/src/config/env.ts`). If a required
+variable is missing or invalid, the process fails fast with a single message listing every problem,
+for example:
+
+```
+Error: Invalid environment configuration:
+  - DATABASE_URL is required (the PostgreSQL connection string).
+  - JWT_SECRET is required (used to sign auth tokens).
+Check your .env file against .env.example.
+```
+
+Required: `DATABASE_URL`, `JWT_SECRET`. Optional with defaults: `API_PORT` (4000), `WEB_URL`
+(`http://localhost:3000`), `NODE_ENV` (`development`). In `production`, `JWT_SECRET` must be a strong
+secret (≥ 16 chars and not the example placeholder). To see the behavior, temporarily unset a
+variable (e.g. `JWT_SECRET= pnpm dev:api`) and observe the clear startup error.
+
+### Debugging tips
+
+- Reproduce an API error and note the `X-Request-Id` from the response (or the `requestId` in the
+  error body), then grep the API logs for that id.
+- In development, an unexpected `500` response includes an `error.stack` field to point you at the
+  failing line; this is stripped in `test` and `production`.
+- Throw an `AppError` (aliased as `HttpError`) for any expected failure — `new AppError(message,
+statusCode)` — and it is rendered in the standard error shape automatically; you do not need a
+  `try/catch` in controllers thanks to the shared `asyncHandler`.
 
 ## Quality Checks
 

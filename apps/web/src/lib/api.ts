@@ -141,13 +141,43 @@ export type Notification = {
   actor: TaskUser | null;
 };
 
+// Stable error codes the API returns in `error.code`. Mirrors the backend's
+// `ErrorCode` union so callers can branch on a code instead of a message.
+export type ApiErrorCode =
+  | "VALIDATION_ERROR"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "BAD_REQUEST"
+  | "INTERNAL_SERVER_ERROR";
+
+// A single field-level validation problem from `error.details`.
+export type ApiErrorDetail = {
+  field: string;
+  message: string;
+};
+
 export class ApiError extends Error {
   statusCode: number;
+  // Present when the API supplied a stable code; undefined for network failures.
+  code?: ApiErrorCode;
+  // Populated for validation errors (HTTP 400 / VALIDATION_ERROR).
+  details?: ApiErrorDetail[];
+  // The server's request id (from the error body), useful when reporting a bug.
+  requestId?: string;
 
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    options: { code?: ApiErrorCode; details?: ApiErrorDetail[]; requestId?: string } = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.statusCode = statusCode;
+    this.code = options.code;
+    this.details = options.details;
+    this.requestId = options.requestId;
   }
 }
 
@@ -157,9 +187,14 @@ export function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 }
 
+// The standard error envelope the API returns. Every field is optional here so a
+// malformed or non-JSON error body can never throw while we read it.
 type ApiErrorBody = {
   error?: {
+    code?: ApiErrorCode;
     message?: string;
+    details?: ApiErrorDetail[];
+    requestId?: string;
   };
 };
 
@@ -184,11 +219,39 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const data: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = (data as ApiErrorBody | null)?.error?.message ?? "Something went wrong.";
-    throw new ApiError(message, response.status);
+    // Parse the standard error envelope defensively: a non-JSON or unexpected
+    // body simply yields the generic fallback message with no code/details.
+    const errorBody = (data as ApiErrorBody | null)?.error;
+    const message = errorBody?.message ?? "Something went wrong.";
+    throw new ApiError(message, response.status, {
+      code: errorBody?.code,
+      details: errorBody?.details,
+      requestId: errorBody?.requestId,
+    });
   }
 
   return data as T;
+}
+
+/**
+ * Produces a friendly, user-facing message from any thrown value. Prefers the
+ * field-level details of a validation error, then the API message, and falls
+ * back to a generic message for unknown/non-Error throwables — so UI code can
+ * render `getApiErrorMessage(err)` without re-implementing this everywhere.
+ */
+export function getApiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === "VALIDATION_ERROR" && error.details && error.details.length > 0) {
+      return error.details.map((detail) => detail.message).join(" ");
+    }
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Something went wrong.";
 }
 
 export async function signup(input: SignupInput): Promise<AuthUser> {
@@ -291,13 +354,10 @@ export async function createProject(
   organizationId: string,
   input: CreateProjectInput,
 ): Promise<Project> {
-  const data = await request<{ project: Project }>(
-    `/organizations/${organizationId}/projects`,
-    {
-      method: "POST",
-      body: JSON.stringify(input),
-    },
-  );
+  const data = await request<{ project: Project }>(`/organizations/${organizationId}/projects`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
   return data.project;
 }

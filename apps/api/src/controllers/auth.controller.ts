@@ -1,7 +1,7 @@
 import { loginSchema, signupSchema } from "@devflow/shared";
-import type { NextFunction, Request, Response } from "express";
-import { HttpError } from "../middleware/error.middleware.js";
+import type { Request, Response } from "express";
 import { loginUser, signupUser } from "../services/auth.service.js";
+import { asyncHandler } from "../utils/async-handler.js";
 import {
   AUTH_COOKIE_NAME,
   getClearAuthCookieOptions,
@@ -9,50 +9,32 @@ import {
   signAuthToken,
 } from "../utils/jwt.js";
 
-function isValidationError(error: unknown) {
-  return error instanceof Error && error.name === "ZodError";
-}
+// Validation (Zod) and unexpected errors are forwarded to the central error
+// middleware by `asyncHandler`, which formats them into the standard shape.
 
-function handleControllerError(error: unknown, next: NextFunction) {
-  if (isValidationError(error)) {
-    next(new HttpError("Invalid request body", 400));
-    return;
-  }
+export const signup = asyncHandler(async (req: Request, res: Response) => {
+  const input = signupSchema.parse(req.body);
+  const user = await signupUser(input);
+  const token = signAuthToken(user.id);
 
-  next(error);
-}
+  setAuthCookie(res, token);
 
-export async function signup(req: Request, res: Response, next: NextFunction) {
-  try {
-    const input = signupSchema.parse(req.body);
-    const user = await signupUser(input);
-    const token = signAuthToken(user.id);
+  res.status(201).json({
+    user,
+  });
+});
 
-    setAuthCookie(res, token);
+export const login = asyncHandler(async (req: Request, res: Response) => {
+  const input = loginSchema.parse(req.body);
+  const user = await loginUser(input);
+  const token = signAuthToken(user.id);
 
-    res.status(201).json({
-      user,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  setAuthCookie(res, token);
 
-export async function login(req: Request, res: Response, next: NextFunction) {
-  try {
-    const input = loginSchema.parse(req.body);
-    const user = await loginUser(input);
-    const token = signAuthToken(user.id);
-
-    setAuthCookie(res, token);
-
-    res.status(200).json({
-      user,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    user,
+  });
+});
 
 export function getMe(req: Request, res: Response) {
   res.status(200).json({
