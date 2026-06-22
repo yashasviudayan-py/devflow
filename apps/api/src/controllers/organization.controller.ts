@@ -3,7 +3,7 @@ import {
   paginationQuerySchema,
   updateOrganizationSchema,
 } from "@devflow/shared";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
   createOrganization,
@@ -13,19 +13,7 @@ import {
   removeOrganizationMember,
   updateOrganization,
 } from "../services/organization.service.js";
-
-function isValidationError(error: unknown) {
-  return error instanceof Error && error.name === "ZodError";
-}
-
-function handleControllerError(error: unknown, next: NextFunction) {
-  if (isValidationError(error)) {
-    next(new HttpError("Invalid request body", 400));
-    return;
-  }
-
-  next(error);
-}
+import { asyncHandler } from "../utils/async-handler.js";
 
 function getAuthenticatedUser(req: Request) {
   if (!req.user) {
@@ -43,92 +31,68 @@ function getMembership(req: Request) {
   return req.organizationMembership;
 }
 
-export async function create(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const input = createOrganizationSchema.parse(req.body);
-    const organization = await createOrganization(user.id, input);
+export const create = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const input = createOrganizationSchema.parse(req.body);
+  const organization = await createOrganization(user.id, input);
 
-    res.status(201).json({
-      organization,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(201).json({
+    organization,
+  });
+});
 
-export async function list(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listOrganizationsForUser(user.id, pagination);
+export const list = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const pagination = paginationQuerySchema.parse(req.query);
+  const { items, nextCursor } = await listOrganizationsForUser(user.id, pagination);
 
-    res.status(200).json({
-      organizations: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    organizations: items,
+    nextCursor,
+  });
+});
 
-export async function getOne(req: Request, res: Response, next: NextFunction) {
-  try {
-    const membership = getMembership(req);
-    const organization = await getOrganizationById(membership.organizationId);
+export const getOne = asyncHandler(async (req: Request, res: Response) => {
+  const membership = getMembership(req);
+  const organization = await getOrganizationById(membership.organizationId);
 
-    res.status(200).json({
-      organization: {
-        ...organization,
-        role: membership.role,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  res.status(200).json({
+    organization: {
+      ...organization,
+      role: membership.role,
+    },
+  });
+});
 
-export async function update(req: Request, res: Response, next: NextFunction) {
-  try {
-    const membership = getMembership(req);
-    const input = updateOrganizationSchema.parse(req.body);
-    const organization = await updateOrganization(membership.organizationId, input);
+export const update = asyncHandler(async (req: Request, res: Response) => {
+  const membership = getMembership(req);
+  const input = updateOrganizationSchema.parse(req.body);
+  const organization = await updateOrganization(membership.organizationId, input);
 
-    res.status(200).json({
-      organization,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    organization,
+  });
+});
 
-export async function listMembers(req: Request, res: Response, next: NextFunction) {
-  try {
-    const membership = getMembership(req);
-    const pagination = paginationQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listOrganizationMembers(
-      membership.organizationId,
-      pagination,
-    );
+export const listMembers = asyncHandler(async (req: Request, res: Response) => {
+  const membership = getMembership(req);
+  const pagination = paginationQuerySchema.parse(req.query);
+  const { items, nextCursor } = await listOrganizationMembers(
+    membership.organizationId,
+    pagination,
+  );
 
-    res.status(200).json({
-      members: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    members: items,
+    nextCursor,
+  });
+});
 
-export async function removeMember(req: Request, res: Response, next: NextFunction) {
-  try {
-    const membership = getMembership(req);
-    await removeOrganizationMember(membership.organizationId, req.params.memberId);
+export const removeMember = asyncHandler(async (req: Request, res: Response) => {
+  const membership = getMembership(req);
+  await removeOrganizationMember(membership.organizationId, req.params.memberId);
 
-    res.status(200).json({
-      success: true,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  res.status(200).json({
+    success: true,
+  });
+});

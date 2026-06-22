@@ -1,5 +1,5 @@
 import { createTaskSchema, listTasksQuerySchema, updateTaskSchema } from "@devflow/shared";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import {
   recordTaskArchived,
   recordTaskChanges,
@@ -14,19 +14,7 @@ import {
   listTasks,
   updateTask,
 } from "../services/task.service.js";
-
-function isValidationError(error: unknown) {
-  return error instanceof Error && error.name === "ZodError";
-}
-
-function handleControllerError(error: unknown, next: NextFunction) {
-  if (isValidationError(error)) {
-    next(new HttpError("Invalid request body", 400));
-    return;
-  }
-
-  next(error);
-}
+import { asyncHandler } from "../utils/async-handler.js";
 
 function getAuthenticatedUser(req: Request) {
   if (!req.user) {
@@ -68,114 +56,91 @@ async function ensureAssigneeBelongsToOrganization(organizationId: string, assig
   }
 }
 
-export async function create(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const project = getProject(req);
-    const membership = getMembership(req);
-    const input = createTaskSchema.parse(req.body);
+export const create = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const project = getProject(req);
+  const membership = getMembership(req);
+  const input = createTaskSchema.parse(req.body);
 
-    if (input.assigneeId) {
-      await ensureAssigneeBelongsToOrganization(membership.organizationId, input.assigneeId);
-    }
-
-    const task = await createTask(project.id, user.id, input);
-
-    await recordTaskCreated({ organizationId: membership.organizationId, actorId: user.id }, task);
-
-    // Notify the assignee if the task was created already assigned to someone else.
-    await notifyTaskAssigned({ organizationId: membership.organizationId, actor: user }, task);
-
-    res.status(201).json({
-      task,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
+  if (input.assigneeId) {
+    await ensureAssigneeBelongsToOrganization(membership.organizationId, input.assigneeId);
   }
-}
 
-export async function list(req: Request, res: Response, next: NextFunction) {
-  try {
-    const project = getProject(req);
-    const query = listTasksQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listTasks(project.id, query);
+  const task = await createTask(project.id, user.id, input);
 
-    res.status(200).json({
-      tasks: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
+  await recordTaskCreated({ organizationId: membership.organizationId, actorId: user.id }, task);
+
+  // Notify the assignee if the task was created already assigned to someone else.
+  await notifyTaskAssigned({ organizationId: membership.organizationId, actor: user }, task);
+
+  res.status(201).json({
+    task,
+  });
+});
+
+export const list = asyncHandler(async (req: Request, res: Response) => {
+  const project = getProject(req);
+  const query = listTasksQuerySchema.parse(req.query);
+  const { items, nextCursor } = await listTasks(project.id, query);
+
+  res.status(200).json({
+    tasks: items,
+    nextCursor,
+  });
+});
+
+export const getOne = asyncHandler(async (req: Request, res: Response) => {
+  const task = getTask(req);
+
+  res.status(200).json({
+    task,
+  });
+});
+
+export const update = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  // `task` is the pre-update snapshot cached by the access middleware; the
+  // recorder diffs it against `updated` to emit granular change events.
+  const task = getTask(req);
+  const membership = getMembership(req);
+  const input = updateTaskSchema.parse(req.body);
+
+  // `null` unassigns the task; only a non-empty id needs membership validation.
+  if (input.assigneeId) {
+    await ensureAssigneeBelongsToOrganization(membership.organizationId, input.assigneeId);
   }
-}
 
-export async function getOne(req: Request, res: Response, next: NextFunction) {
-  try {
-    const task = getTask(req);
+  const updated = await updateTask(task.id, input);
 
-    res.status(200).json({
-      task,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  await recordTaskChanges(
+    { organizationId: membership.organizationId, actorId: user.id },
+    task,
+    updated,
+  );
 
-export async function update(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    // `task` is the pre-update snapshot cached by the access middleware; the
-    // recorder diffs it against `updated` to emit granular change events.
-    const task = getTask(req);
-    const membership = getMembership(req);
-    const input = updateTaskSchema.parse(req.body);
+  // Notify the assignee of reassignment / status / priority changes made by
+  // someone other than themselves (the same before/after diff drives both).
+  await notifyTaskChanges(
+    { organizationId: membership.organizationId, actor: user },
+    task,
+    updated,
+  );
 
-    // `null` unassigns the task; only a non-empty id needs membership validation.
-    if (input.assigneeId) {
-      await ensureAssigneeBelongsToOrganization(membership.organizationId, input.assigneeId);
-    }
+  res.status(200).json({
+    task: updated,
+  });
+});
 
-    const updated = await updateTask(task.id, input);
+export const remove = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const task = getTask(req);
+  const membership = getMembership(req);
+  // Soft-archive rather than hard-delete so the task (and its comments) is recoverable.
+  await archiveTask(task.id);
 
-    await recordTaskChanges(
-      { organizationId: membership.organizationId, actorId: user.id },
-      task,
-      updated,
-    );
+  await recordTaskArchived({ organizationId: membership.organizationId, actorId: user.id }, task);
 
-    // Notify the assignee of reassignment / status / priority changes made by
-    // someone other than themselves (the same before/after diff drives both).
-    await notifyTaskChanges(
-      { organizationId: membership.organizationId, actor: user },
-      task,
-      updated,
-    );
-
-    res.status(200).json({
-      task: updated,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
-
-export async function remove(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const task = getTask(req);
-    const membership = getMembership(req);
-    // Soft-archive rather than hard-delete so the task (and its comments) is recoverable.
-    await archiveTask(task.id);
-
-    await recordTaskArchived(
-      { organizationId: membership.organizationId, actorId: user.id },
-      task,
-    );
-
-    res.status(200).json({
-      success: true,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  res.status(200).json({
+    success: true,
+  });
+});

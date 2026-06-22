@@ -1,5 +1,5 @@
 import { createProjectSchema, listProjectsQuerySchema, updateProjectSchema } from "@devflow/shared";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import {
   recordProjectArchived,
   recordProjectCreated,
@@ -12,19 +12,7 @@ import {
   listProjects,
   updateProject,
 } from "../services/project.service.js";
-
-function isValidationError(error: unknown) {
-  return error instanceof Error && error.name === "ZodError";
-}
-
-function handleControllerError(error: unknown, next: NextFunction) {
-  if (isValidationError(error)) {
-    next(new HttpError("Invalid request body", 400));
-    return;
-  }
-
-  next(error);
-}
+import { asyncHandler } from "../utils/async-handler.js";
 
 function getAuthenticatedUser(req: Request) {
   if (!req.user) {
@@ -50,89 +38,72 @@ function getProject(req: Request) {
   return req.project;
 }
 
-export async function create(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const membership = getMembership(req);
-    const input = createProjectSchema.parse(req.body);
-    const project = await createProject(membership.organizationId, user.id, input);
+export const create = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const membership = getMembership(req);
+  const input = createProjectSchema.parse(req.body);
+  const project = await createProject(membership.organizationId, user.id, input);
 
-    await recordProjectCreated({ organizationId: membership.organizationId, actorId: user.id }, project);
+  await recordProjectCreated(
+    { organizationId: membership.organizationId, actorId: user.id },
+    project,
+  );
 
-    res.status(201).json({
-      project,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(201).json({
+    project,
+  });
+});
 
-export async function list(req: Request, res: Response, next: NextFunction) {
-  try {
-    const membership = getMembership(req);
-    const query = listProjectsQuerySchema.parse(req.query);
-    const { items, nextCursor } = await listProjects(membership.organizationId, query);
+export const list = asyncHandler(async (req: Request, res: Response) => {
+  const membership = getMembership(req);
+  const query = listProjectsQuerySchema.parse(req.query);
+  const { items, nextCursor } = await listProjects(membership.organizationId, query);
 
-    res.status(200).json({
-      projects: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    projects: items,
+    nextCursor,
+  });
+});
 
-export async function getOne(req: Request, res: Response, next: NextFunction) {
-  try {
-    const project = getProject(req);
+export const getOne = asyncHandler(async (req: Request, res: Response) => {
+  const project = getProject(req);
 
-    res.status(200).json({
-      project,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  res.status(200).json({
+    project,
+  });
+});
 
-export async function update(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    // `project` is the pre-update snapshot cached by the access middleware; the
-    // recorder diffs it against the updated row to record what actually changed.
-    const project = getProject(req);
-    const input = updateProjectSchema.parse(req.body);
-    const updated = await updateProject(project.id, input);
+export const update = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  // `project` is the pre-update snapshot cached by the access middleware; the
+  // recorder diffs it against the updated row to record what actually changed.
+  const project = getProject(req);
+  const input = updateProjectSchema.parse(req.body);
+  const updated = await updateProject(project.id, input);
 
-    await recordProjectUpdated(
-      { organizationId: project.organizationId, actorId: user.id },
-      project,
-      updated,
-    );
+  await recordProjectUpdated(
+    { organizationId: project.organizationId, actorId: user.id },
+    project,
+    updated,
+  );
 
-    res.status(200).json({
-      project: updated,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
-  }
-}
+  res.status(200).json({
+    project: updated,
+  });
+});
 
-export async function remove(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const project = getProject(req);
-    // Soft-archive rather than hard-delete so the data (and future tasks) is recoverable.
-    await archiveProject(project.id);
+export const remove = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const project = getProject(req);
+  // Soft-archive rather than hard-delete so the data (and future tasks) is recoverable.
+  await archiveProject(project.id);
 
-    await recordProjectArchived(
-      { organizationId: project.organizationId, actorId: user.id },
-      project,
-    );
+  await recordProjectArchived(
+    { organizationId: project.organizationId, actorId: user.id },
+    project,
+  );
 
-    res.status(200).json({
-      success: true,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  res.status(200).json({
+    success: true,
+  });
+});

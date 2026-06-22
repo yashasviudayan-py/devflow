@@ -1,5 +1,5 @@
 import { listNotificationsQuerySchema } from "@devflow/shared";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { HttpError } from "../middleware/error.middleware.js";
 import {
   deleteNotification,
@@ -8,20 +8,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../services/notification.service.js";
-
-function isValidationError(error: unknown) {
-  return error instanceof Error && error.name === "ZodError";
-}
-
-function handleControllerError(error: unknown, next: NextFunction) {
-  if (isValidationError(error)) {
-    // Pagination query params are the only user-controlled input here.
-    next(new HttpError("Invalid query parameters", 400));
-    return;
-  }
-
-  next(error);
-}
+import { asyncHandler } from "../utils/async-handler.js";
 
 function getAuthenticatedUser(req: Request) {
   if (!req.user) {
@@ -31,79 +18,59 @@ function getAuthenticatedUser(req: Request) {
   return req.user;
 }
 
-export async function list(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const query = listNotificationsQuerySchema.parse(req.query);
-    const { items, nextCursor } = await getUserNotifications(user.id, query);
+export const list = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const query = listNotificationsQuerySchema.parse(req.query);
+  const { items, nextCursor } = await getUserNotifications(user.id, query);
 
-    res.status(200).json({
-      notifications: items,
-      nextCursor,
-    });
-  } catch (error) {
-    handleControllerError(error, next);
+  res.status(200).json({
+    notifications: items,
+    nextCursor,
+  });
+});
+
+export const unreadCount = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const count = await getUnreadNotificationCount(user.id);
+
+  res.status(200).json({
+    count,
+  });
+});
+
+export const markRead = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  // Scoped to the owner in the service: a missing id and another user's id both
+  // return null, so we respond 404 without leaking the notification's existence.
+  const notification = await markNotificationRead(req.params.notificationId, user.id);
+
+  if (!notification) {
+    throw new HttpError("Notification not found", 404);
   }
-}
 
-export async function unreadCount(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const count = await getUnreadNotificationCount(user.id);
+  res.status(200).json({
+    notification,
+  });
+});
 
-    res.status(200).json({
-      count,
-    });
-  } catch (error) {
-    next(error);
+export const markAllRead = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const updated = await markAllNotificationsRead(user.id);
+
+  res.status(200).json({
+    updated,
+  });
+});
+
+export const remove = asyncHandler(async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  const deleted = await deleteNotification(req.params.notificationId, user.id);
+
+  if (!deleted) {
+    throw new HttpError("Notification not found", 404);
   }
-}
 
-export async function markRead(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    // Scoped to the owner in the service: a missing id and another user's id both
-    // return null, so we respond 404 without leaking the notification's existence.
-    const notification = await markNotificationRead(req.params.notificationId, user.id);
-
-    if (!notification) {
-      throw new HttpError("Notification not found", 404);
-    }
-
-    res.status(200).json({
-      notification,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function markAllRead(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const updated = await markAllNotificationsRead(user.id);
-
-    res.status(200).json({
-      updated,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function remove(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = getAuthenticatedUser(req);
-    const deleted = await deleteNotification(req.params.notificationId, user.id);
-
-    if (!deleted) {
-      throw new HttpError("Notification not found", 404);
-    }
-
-    res.status(200).json({
-      success: true,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+  res.status(200).json({
+    success: true,
+  });
+});
