@@ -1,6 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { getApp, signupUser } from "../test/harness.js";
+import { getApp, prisma, signupUser } from "../test/harness.js";
 
 function getSetCookieHeader(response: request.Response) {
   const cookies = response.headers["set-cookie"];
@@ -158,6 +158,28 @@ describe("auth routes", () => {
     it("returns 401 without valid cookie", async () => {
       const app = await getApp();
       const response = await request(app).get("/auth/me");
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.message).toBe("Not authenticated");
+    });
+
+    it("returns 401 for a malformed auth token", async () => {
+      const app = await getApp();
+      const response = await request(app)
+        .get("/auth/me")
+        .set("Cookie", ["devflow_auth=not-a-real-token"]);
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.message).toBe("Not authenticated");
+    });
+
+    it("returns 401 when the token is valid but the user no longer exists", async () => {
+      const app = await getApp();
+      const user = await signupUser("Gone User", "gone@example.com");
+
+      await prisma.user.delete({ where: { id: user.id } });
+
+      const response = await request(app).get("/auth/me").set("Cookie", user.cookies);
 
       expect(response.status).toBe(401);
       expect(response.body.error.message).toBe("Not authenticated");
