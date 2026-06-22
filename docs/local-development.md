@@ -310,3 +310,12 @@ The suite isolates itself from your dev data by using a dedicated `test` schema 
 `devflow` database (`...:5432/devflow?schema=test`). A global setup applies migrations to that schema
 once, and every test truncates only the `test` schema between runs — data in `public` is never
 touched. To point the tests at a different database (for example in CI), set `TEST_DATABASE_URL`.
+
+Only the API route tests need a database. The shared validation schemas (`@devflow/shared`) and the
+web library helpers (`@devflow/web`) are pure unit tests, so you can run them without Postgres:
+
+```bash
+pnpm --filter @devflow/shared test   # validation schemas, pagination helpers
+pnpm --filter @devflow/web test       # API client, formatting and pagination helpers
+pnpm --filter @devflow/api test       # integration tests (needs Postgres running)
+```
