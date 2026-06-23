@@ -9,16 +9,23 @@ dotenv.config();
 dotenv.config({ path: fileURLToPath(new URL("../../../../.env", import.meta.url)) });
 
 const NODE_ENVS = ["development", "test", "production"] as const;
-type NodeEnv = (typeof NODE_ENVS)[number];
+export type NodeEnv = (typeof NODE_ENVS)[number];
+
+const LOG_LEVELS = ["error", "warn", "info"] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
 
 const PLACEHOLDER_JWT_SECRET = "replace-this-with-a-long-random-secret-before-using-auth";
 
 export type Env = {
-  API_PORT: number;
+  PORT: number;
+  HOST: string;
   WEB_URL: string;
+  // Explicit list of origins CORS allows with credentials (never a wildcard).
+  CORS_ORIGINS: string[];
   JWT_SECRET: string;
   DATABASE_URL: string;
   NODE_ENV: NodeEnv;
+  LOG_LEVEL: LogLevel;
 };
 
 /**
@@ -55,12 +62,32 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     );
   }
 
-  const apiPort = Number(source.API_PORT ?? 4000);
-  if (!Number.isInteger(apiPort) || apiPort <= 0) {
-    errors.push(`API_PORT must be a positive integer (got "${source.API_PORT}").`);
+  // Hosting platforms (Render, Railway, Fly, …) inject the listen port as PORT.
+  // Prefer it, then the local API_PORT convention, then a sensible default, so
+  // the same build runs unchanged locally and in production.
+  const portRaw = source.PORT ?? source.API_PORT ?? "4000";
+  const port = Number(portRaw);
+  if (!Number.isInteger(port) || port <= 0) {
+    errors.push(`PORT (or API_PORT) must be a positive integer (got "${portRaw}").`);
   }
 
+  // Bind to all interfaces by default so platforms that route to the container
+  // over its private network (e.g. Render) can reach the server.
+  const host = source.HOST?.trim() || "0.0.0.0";
+
   const webUrl = source.WEB_URL?.trim() || "http://localhost:3000";
+
+  // CORS allowlist: always the configured web origin, plus localhost during
+  // local development so the dev frontend works without extra config. Never a
+  // wildcard — credentialed (cookie) requests are incompatible with "*".
+  const corsOrigins = Array.from(
+    new Set([webUrl, ...(isProduction ? [] : ["http://localhost:3000"])]),
+  );
+
+  const logLevelRaw = (source.LOG_LEVEL?.trim().toLowerCase() || "info") as LogLevel;
+  if (!LOG_LEVELS.includes(logLevelRaw)) {
+    errors.push(`LOG_LEVEL must be one of ${LOG_LEVELS.join(", ")} (got "${source.LOG_LEVEL}").`);
+  }
 
   if (errors.length > 0) {
     throw new Error(
@@ -70,11 +97,14 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
 
   return Object.freeze({
-    API_PORT: apiPort,
+    PORT: port,
+    HOST: host,
     WEB_URL: webUrl,
+    CORS_ORIGINS: corsOrigins,
     JWT_SECRET: jwtSecret as string,
     DATABASE_URL: databaseUrl as string,
     NODE_ENV: nodeEnv,
+    LOG_LEVEL: logLevelRaw,
   });
 }
 

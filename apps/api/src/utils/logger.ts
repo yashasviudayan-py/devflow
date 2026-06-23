@@ -11,6 +11,14 @@ import { env } from "../config/env.js";
  */
 type LogLevel = "info" | "warn" | "error";
 
+// Lower number = higher severity. A message is emitted only when its severity is
+// at least as high as the configured LOG_LEVEL (e.g. LOG_LEVEL=warn drops info).
+const LEVEL_PRIORITY: Record<LogLevel, number> = {
+  error: 0,
+  warn: 1,
+  info: 2,
+};
+
 // Never log these keys, even if a caller passes them by accident. Secrets and
 // credentials must never reach the logs.
 const REDACTED_KEYS = new Set([
@@ -33,6 +41,11 @@ function redact(meta: Record<string, unknown>): Record<string, unknown> {
 function emit(level: LogLevel, message: string, meta: Record<string, unknown> = {}) {
   // Quiet during tests; errors and requests are asserted via responses instead.
   if (env.NODE_ENV === "test") {
+    return;
+  }
+
+  // Honour the configured verbosity (default "info" emits everything).
+  if (LEVEL_PRIORITY[level] > LEVEL_PRIORITY[env.LOG_LEVEL]) {
     return;
   }
 
