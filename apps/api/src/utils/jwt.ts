@@ -41,23 +41,40 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
   }
 }
 
-export function getAuthCookieOptions(): CookieOptions {
+/**
+ * Base cookie flags shared by the set and clear paths.
+ *
+ * In production the frontend (Vercel) and API (Render) live on different
+ * registrable domains, so the auth cookie is *cross-site*. Browsers only attach
+ * a cross-site cookie when it is `SameSite=None`, and `SameSite=None` is only
+ * accepted alongside `Secure` (HTTPS). Locally both apps are on `localhost`, so
+ * `SameSite=Lax` works and `Secure` is omitted (dev runs over HTTP).
+ *
+ * `isProduction` is a parameter (defaulting to the loaded env) purely so the
+ * behaviour is unit-testable without mutating the frozen `env`.
+ */
+function buildAuthCookieOptions(isProduction: boolean): CookieOptions {
   return {
     httpOnly: true,
-    maxAge: AUTH_COOKIE_MAX_AGE_MS,
     path: "/",
-    sameSite: "lax",
-    secure: env.NODE_ENV === "production",
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
   };
 }
 
-export function getClearAuthCookieOptions(): CookieOptions {
+export function getAuthCookieOptions(
+  isProduction = env.NODE_ENV === "production",
+): CookieOptions {
   return {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secure: env.NODE_ENV === "production",
+    ...buildAuthCookieOptions(isProduction),
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
   };
+}
+
+export function getClearAuthCookieOptions(
+  isProduction = env.NODE_ENV === "production",
+): CookieOptions {
+  return buildAuthCookieOptions(isProduction);
 }
 
 export function setAuthCookie(res: Response, token: string) {

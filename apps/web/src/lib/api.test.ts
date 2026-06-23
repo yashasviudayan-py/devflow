@@ -106,8 +106,26 @@ afterEach(() => {
 });
 
 describe("getApiBaseUrl", () => {
+  const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  afterEach(() => {
+    if (originalApiUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_API_URL;
+    } else {
+      process.env.NEXT_PUBLIC_API_URL = originalApiUrl;
+    }
+  });
+
   it("defaults to the local API URL", () => {
+    delete process.env.NEXT_PUBLIC_API_URL;
+
     expect(getApiBaseUrl()).toBe("http://localhost:4000");
+  });
+
+  it("uses NEXT_PUBLIC_API_URL when set (e.g. the Render API URL in production)", () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://devflow-api.onrender.com";
+
+    expect(getApiBaseUrl()).toBe("https://devflow-api.onrender.com");
   });
 });
 
