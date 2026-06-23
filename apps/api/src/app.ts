@@ -20,9 +20,11 @@ export const app = express();
 app.use(requestContext);
 app.use(requestLogger);
 
+// Explicit origin allowlist (never "*") with credentials enabled so the browser
+// sends/accepts the HTTP-only auth cookie across the web and API origins.
 app.use(
   cors({
-    origin: env.WEB_URL,
+    origin: env.CORS_ORIGINS,
     credentials: true,
   }),
 );
