@@ -1,0 +1,37 @@
+# Render Blueprint for the DevFlow API (apps/api).
+#
+# This is OPTIONAL: you can configure the same settings manually in the Render
+# dashboard (see docs/deployment.md). If you use this Blueprint, Render reads it
+# from the repo root. No secrets live here — values marked `sync: false` must be
+# filled in via the Render dashboard so they are never committed to git.
+#
+# Notes:
+# - PORT is provided by Render automatically; the server reads it. Do not set it.
+# - Migrations run at the end of the build command (`pnpm db:deploy`) so the
+#   schema is up to date before the new instance starts. On paid plans you may
+#   prefer a separate `preDeployCommand: pnpm db:deploy` instead.
+services:
+  - type: web
+    name: devflow-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @devflow/api build && pnpm db:deploy
+    startCommand: pnpm --filter @devflow/api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Neon connection string for the running app (pooled URL recommended).
+      - key: DATABASE_URL
+        sync: false
+      # Strong random secret (>= 16 chars). Generate one, e.g. `openssl rand -hex 32`.
+      - key: JWT_SECRET
+        sync: false
+      # Your Vercel frontend URL, e.g. https://devflow.vercel.app
+      - key: WEB_URL
+        sync: false
+      # Optional: a direct (non-pooled) Neon URL for migrations. Only needed if
+      # DATABASE_URL points at the pooled endpoint. See docs/deployment.md.
+      # - key: DIRECT_URL
+      #   sync: false

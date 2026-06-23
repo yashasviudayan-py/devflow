@@ -95,8 +95,17 @@ The API runs at `http://localhost:4000`, with health checks at `GET /health`.
 - `pnpm test` - run Vitest tests
 - `pnpm typecheck` - run TypeScript checks
 - `pnpm db:generate` - generate the Prisma client
-- `pnpm db:migrate` - create and apply a local Prisma migration
+- `pnpm db:migrate` - create and apply a local Prisma migration (development)
+- `pnpm db:deploy` - apply committed migrations (production/staging/CI)
 - `pnpm db:studio` - open Prisma Studio
+
+## Deployment
+
+DevFlow deploys to Vercel (frontend), Render (backend API), and Neon
+(PostgreSQL). See [`docs/deployment.md`](docs/deployment.md) for the full guide:
+environment variables, Prisma migrations in production, CORS/cookie setup,
+health checks, a smoke-test checklist, and rollback steps. An optional Render
+Blueprint is provided in [`render.yaml`](render.yaml).
 
 ## Git Workflow
 

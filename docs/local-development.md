@@ -57,6 +57,11 @@ Create and apply the first local migration:
 pnpm db:migrate
 ```
 
+> `pnpm db:migrate` (`prisma migrate dev`) is for **local development** — it
+> creates new migration files. In production/CI use `pnpm db:deploy`
+> (`prisma migrate deploy`), which only applies already-committed migrations.
+> See [deployment.md](deployment.md).
+
 Open Prisma Studio:
 
 ```bash
@@ -339,10 +344,12 @@ Error: Invalid environment configuration:
 Check your .env file against .env.example.
 ```
 
-Required: `DATABASE_URL`, `JWT_SECRET`. Optional with defaults: `API_PORT` (4000), `WEB_URL`
-(`http://localhost:3000`), `NODE_ENV` (`development`). In `production`, `JWT_SECRET` must be a strong
-secret (≥ 16 chars and not the example placeholder). To see the behavior, temporarily unset a
-variable (e.g. `JWT_SECRET= pnpm dev:api`) and observe the clear startup error.
+Required: `DATABASE_URL`, `JWT_SECRET`. Optional with defaults: the listen port (`PORT` is
+preferred — hosting platforms inject it — then `API_PORT`, default 4000), `HOST` (`0.0.0.0`),
+`WEB_URL` (`http://localhost:3000`), `NODE_ENV` (`development`), and `LOG_LEVEL` (`info`). In
+`production`, `JWT_SECRET` must be a strong secret (≥ 16 chars and not the example placeholder). To
+see the behavior, temporarily unset a variable (e.g. `JWT_SECRET= pnpm dev:api`) and observe the
+clear startup error. For production deployment, see [deployment.md](deployment.md).
 
 ### Debugging tips
 
