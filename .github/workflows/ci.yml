@@ -57,7 +57,7 @@ jobs:
         run: pnpm db:generate
 
       - name: Apply database migrations
-        run: pnpm exec prisma migrate deploy
+        run: pnpm db:deploy
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
 
