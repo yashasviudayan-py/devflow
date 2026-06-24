@@ -56,7 +56,7 @@ cross-site. This drives the CORS and cookie settings explained below.
 
 | Variable              | Required | Example                              | Notes |
 | --------------------- | -------- | ------------------------------------ | ----- |
-| `NEXT_PUBLIC_API_URL` | yes      | `https://devflow-api.onrender.com`   | Where the browser calls the API. Inlined at build time. |
+| `NEXT_PUBLIC_API_URL` | yes      | `/api`                               | Where the browser calls the API. Inlined at build time. In production use the **relative** `/api`, which the rewrite in `apps/web/vercel.json` proxies to Render so the auth cookie is first-party (see "CORS and cookies in production"). |
 
 See [`.env.example`](../.env.example) for the local versions of all of these.
 
@@ -137,7 +137,7 @@ Configure the project in the Vercel dashboard:
 | Build command    | `pnpm --filter @devflow/web build` |
 | Output           | (default, auto-detected) |
 
-Environment variable: `NEXT_PUBLIC_API_URL=https://your-render-api-url`.
+Environment variable: `NEXT_PUBLIC_API_URL=/api` (the same-site proxy — see below).
 
 **Why the custom build command?** `apps/web` imports runtime validation schemas
 from the workspace package `@devflow/shared`, whose compiled output is not
@@ -146,36 +146,49 @@ next build`) compiles `@devflow/shared` first, so `pnpm --filter @devflow/web
 build` produces a complete build. With Root Directory set to `apps/web`, Vercel
 still installs the whole pnpm workspace from the repo root.
 
-**Why no `vercel.json`?** The monorepo settings above (Root Directory, build
-command) are configured in the Vercel dashboard, which is the single source of
-truth for those. A `vercel.json` would duplicate them and is not required for a
-standard Next.js deploy. Add one later only if you need rewrites/headers/cron.
+**Why a `vercel.json`?** It defines the **same-site API proxy** (see below): a
+rewrite from `/api/*` to the Render API so the browser talks to the API on the
+Vercel origin and the auth cookie stays first-party. The monorepo settings above
+(Root Directory, build command) remain configured in the Vercel dashboard.
 
 ## CORS and cookies in production
 
 The auth session is stored in an **HTTP-only cookie** (never in `localStorage`),
-so JavaScript cannot read the token. Because Vercel and Render are on different
-domains, the cookie is **cross-site**, which constrains the settings:
+so JavaScript cannot read the token.
 
-- **CORS** (`apps/api/src/app.ts`): an explicit origin allowlist (`WEB_URL`, plus
-  `http://localhost:3000` in development) with `credentials: true`. A wildcard
-  (`*`) origin is **never** used — browsers reject `*` together with
-  credentialed requests.
+**The cross-site cookie problem.** Vercel (`*.vercel.app`) and Render
+(`*.onrender.com`) are different registrable domains, so a cookie set directly by
+the Render API is a **third-party cookie** to the Vercel app. Even with the
+correct `SameSite=None; Secure` flags, browsers increasingly **block third-party
+cookies** (Safari by default, Chrome incognito / privacy settings), so login
+"succeeds" but the cookie is never stored and `/auth/me` then returns 401 — the
+user bounces back to `/login`.
+
+**The fix — same-site proxy.** `apps/web/vercel.json` rewrites `/api/*` to the
+Render API. The browser only ever calls the Vercel origin, so the cookie Render
+sets comes back through Vercel and is stored **first-party** to the Vercel
+domain. This works in every browser, no third-party-cookie exceptions needed.
+The frontend points `NEXT_PUBLIC_API_URL` at the relative `/api` to use it.
+
+- **Proxy** (`apps/web/vercel.json`): `/api/:path* -> https://<render-api>/:path*`.
+  Update the destination if you redeploy the API to a new Render URL.
+- **CORS** (`apps/api/src/app.ts`): still an explicit origin allowlist (`WEB_URL`,
+  plus `http://localhost:3000` in development) with `credentials: true`, never a
+  wildcard. (With the proxy, browser requests are same-origin, but the allowlist
+  stays correct and is also used by local cross-origin dev.)
 - **Cookies** (`apps/api/src/utils/jwt.ts`):
   - **Development:** `httpOnly: true`, `sameSite: "lax"`, `secure: false` (local
-    HTTP, same site `localhost`).
-  - **Production:** `httpOnly: true`, `sameSite: "none"`, `secure: true`.
-    `SameSite=None` is required for the browser to *send* the cookie on
-    cross-site requests, and `SameSite=None` is only accepted alongside `Secure`
-    (HTTPS). This is why both apps must be served over HTTPS (Vercel and Render
-    both provide HTTPS by default).
+    HTTP, same site `localhost`, browser → API directly).
+  - **Production:** `httpOnly: true`, `sameSite: "none"`, `secure: true`. These
+    flags remain correct behind the proxy (the cookie is first-party, and
+    `None; Secure` is a safe superset).
 - The frontend sends `credentials: "include"` on every request
-  (`apps/web/src/lib/api.ts`) so the cookie travels with cross-origin calls.
+  (`apps/web/src/lib/api.ts`) so the cookie travels with the request.
 
-If login appears to work but `/auth/me` returns 401 in production, the usual
-cause is a cookie that the browser refused to store/send — verify HTTPS on both
-sides, `NODE_ENV=production` on the API, and that `WEB_URL`/`NEXT_PUBLIC_API_URL`
-point at the real HTTPS URLs.
+If login appears to work but `/auth/me` returns 401 in production, verify:
+`NEXT_PUBLIC_API_URL=/api` on Vercel, the `vercel.json` destination points at the
+live Render URL, `NODE_ENV=production` and `WEB_URL` are set on Render, and both
+apps are served over HTTPS.
 
 ## Health check
 
@@ -189,7 +202,7 @@ touch the database.
 | ------- | ------------------ |
 | API crashes on boot with "Invalid environment configuration" | A required env var is missing/invalid. The message lists each problem — set them in the Render dashboard. |
 | `JWT_SECRET must be a strong secret …` | Set a ≥ 16-char random secret (not the placeholder) in production. |
-| Login works but `/auth/me` is 401 in prod | Cross-site cookie blocked: ensure HTTPS on both apps, `NODE_ENV=production`, correct `WEB_URL`/`NEXT_PUBLIC_API_URL`. |
+| Login works but `/auth/me` is 401 in prod (esp. Safari/incognito) | Browser blocked the third-party cookie. Use the same-site proxy: set `NEXT_PUBLIC_API_URL=/api` on Vercel and point `apps/web/vercel.json`'s rewrite at the live Render URL. Also confirm `NODE_ENV=production` + HTTPS on both apps. |
 | Browser console: CORS error | `WEB_URL` on the API doesn't match the actual Vercel origin (scheme + host, no trailing slash). |
 | `pnpm: command not found` on Render | Add `corepack enable &&` to the build command (already in `render.yaml`). |
 | Migrations fail on pooled connection | Run `db:deploy` against the **direct** Neon URL (`DATABASE_URL="$DIRECT_URL" pnpm db:deploy`). |
