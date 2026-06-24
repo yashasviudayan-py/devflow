@@ -57,22 +57,23 @@ describe("auth cookie options", () => {
     expect(options.maxAge).toBeUndefined();
   });
 
-  it("uses secure, cross-site (sameSite none) cookies in production", () => {
+  it("uses secure, same-site (sameSite lax) cookies in production", () => {
     const options = getAuthCookieOptions(true);
 
     expect(options.httpOnly).toBe(true);
     expect(options.secure).toBe(true);
-    // Cross-site (Vercel <-> Render) requires SameSite=None to be sent at all.
-    expect(options.sameSite).toBe("none");
+    // The browser reaches the API same-origin via the Vercel `/api/*` proxy, so
+    // the cookie is first-party and Lax is sufficient (no SameSite=None needed).
+    expect(options.sameSite).toBe("lax");
     expect(options.maxAge).toBeGreaterThan(0);
   });
 
-  it("clears the production cookie with matching secure/none flags", () => {
+  it("clears the production cookie with matching secure/lax flags", () => {
     const options = getClearAuthCookieOptions(true);
 
     expect(options.httpOnly).toBe(true);
     expect(options.secure).toBe(true);
-    expect(options.sameSite).toBe("none");
+    expect(options.sameSite).toBe("lax");
     expect(options.maxAge).toBeUndefined();
   });
 });

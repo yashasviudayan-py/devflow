@@ -109,6 +109,7 @@ describe("getApiBaseUrl", () => {
   const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (originalApiUrl === undefined) {
       delete process.env.NEXT_PUBLIC_API_URL;
     } else {
@@ -116,23 +117,25 @@ describe("getApiBaseUrl", () => {
     }
   });
 
-  it("defaults to the local API URL", () => {
+  it("defaults to the local API URL in development", () => {
     delete process.env.NEXT_PUBLIC_API_URL;
 
     expect(getApiBaseUrl()).toBe("http://localhost:4000");
   });
 
-  it("uses NEXT_PUBLIC_API_URL when set (e.g. the Render API URL in production)", () => {
-    process.env.NEXT_PUBLIC_API_URL = "https://devflow-api.onrender.com";
+  it("uses NEXT_PUBLIC_API_URL in development when set", () => {
+    process.env.NEXT_PUBLIC_API_URL = "http://localhost:4000";
 
-    expect(getApiBaseUrl()).toBe("https://devflow-api.onrender.com");
+    expect(getApiBaseUrl()).toBe("http://localhost:4000");
   });
 
-  it("supports a relative base for the Vercel same-site proxy", async () => {
-    // In production the browser calls the API through a same-origin Vercel
-    // rewrite (/api/* -> Render) so the auth cookie is first-party. The client
-    // just prefixes the relative base, yielding a same-origin request path.
-    process.env.NEXT_PUBLIC_API_URL = "/api";
+  it("uses the same-origin /api proxy in production, ignoring NEXT_PUBLIC_API_URL", async () => {
+    // In production the browser calls the API through the same-origin Next.js
+    // rewrite (/api/* -> backend) so the auth cookie is first-party. The client
+    // always uses the relative `/api` base regardless of NEXT_PUBLIC_API_URL
+    // (which only configures the rewrite destination + the dev base).
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.NEXT_PUBLIC_API_URL = "https://devflow-1wg5.onrender.com";
 
     expect(getApiBaseUrl()).toBe("/api");
 
