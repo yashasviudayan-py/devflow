@@ -127,6 +127,23 @@ describe("getApiBaseUrl", () => {
 
     expect(getApiBaseUrl()).toBe("https://devflow-api.onrender.com");
   });
+
+  it("supports a relative base for the Vercel same-site proxy", async () => {
+    // In production the browser calls the API through a same-origin Vercel
+    // rewrite (/api/* -> Render) so the auth cookie is first-party. The client
+    // just prefixes the relative base, yielding a same-origin request path.
+    process.env.NEXT_PUBLIC_API_URL = "/api";
+
+    expect(getApiBaseUrl()).toBe("/api");
+
+    const fetchMock = mockFetchResponse(200, { user: testUser });
+    await login({ email: "test@example.com", password: "password123" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/login",
+      expect.objectContaining({ method: "POST", credentials: "include" }),
+    );
+  });
 });
 
 describe("auth api client", () => {
