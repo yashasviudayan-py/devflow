@@ -44,11 +44,14 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
 /**
  * Base cookie flags shared by the set and clear paths.
  *
- * In production the frontend (Vercel) and API (Render) live on different
- * registrable domains, so the auth cookie is *cross-site*. Browsers only attach
- * a cross-site cookie when it is `SameSite=None`, and `SameSite=None` is only
- * accepted alongside `Secure` (HTTPS). Locally both apps are on `localhost`, so
- * `SameSite=Lax` works and `Secure` is omitted (dev runs over HTTP).
+ * The browser reaches the API *same-origin* in every environment: in production
+ * through the Vercel/Next.js `/api/*` rewrite to Render (see
+ * apps/web/next.config.mjs), and locally by calling the API directly. A
+ * same-origin request is same-site, so `SameSite=Lax` is sufficient and keeps
+ * the cookie first-party — we never need `SameSite=None`, which would mark the
+ * cookie cross-site and expose it to third-party-cookie blocking (Safari, Chrome
+ * incognito). The only environment difference is `Secure`: on in production
+ * (HTTPS), off locally (dev runs over plain HTTP).
  *
  * `isProduction` is a parameter (defaulting to the loaded env) purely so the
  * behaviour is unit-testable without mutating the frozen `env`.
@@ -57,7 +60,7 @@ function buildAuthCookieOptions(isProduction: boolean): CookieOptions {
   return {
     httpOnly: true,
     path: "/",
-    sameSite: isProduction ? "none" : "lax",
+    sameSite: "lax",
     secure: isProduction,
   };
 }

@@ -184,6 +184,16 @@ export class ApiError extends Error {
 const DEFAULT_API_URL = "http://localhost:4000";
 
 export function getApiBaseUrl() {
+  // Production: the browser calls the API same-origin at the relative `/api`,
+  // which the Next.js rewrite (see apps/web/next.config.mjs) proxies to the real
+  // backend. Same-origin means the auth cookie stays first-party — no cross-site
+  // cookie that Safari/Chrome would block.
+  if (process.env.NODE_ENV === "production") {
+    return "/api";
+  }
+
+  // Development: the browser talks to the API origin directly (cross-origin
+  // localhost:3000 -> localhost:4000), so use the configured/ default URL.
   return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 }
 
