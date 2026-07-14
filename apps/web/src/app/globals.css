@@ -2,21 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * DevFlow light theme.
+ *
+ * All surfaces, text, and border colors are defined here and consumed through
+ * the Tailwind theme (canvas / surface / ink / edge). Neutrals carry a faint
+ * sage cast so emerald reads as the app's material, not a decoration. Dark
+ * mode is not shipped yet, but because every color routes through these
+ * variables it can be added later with a single alternate block.
+ */
 :root {
   color-scheme: light;
+
+  --canvas: #f8faf9;
+  --canvas-subtle: #f1f5f2;
+  --surface: #ffffff;
+  --surface-hover: #f5f9f6;
+
+  --ink: #101512;
+  --ink-secondary: #4a564e;
+  --ink-muted: #687168;
+  --ink-faint: #a6aea9;
+
+  --edge-subtle: #e8ede9;
+  --edge: #dde3df;
+  --edge-strong: #c7d0ca;
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: theme(fontFamily.sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
-body {
-  margin: 0;
-  background: #fafafa;
-  color: #171717;
+@layer components {
+  /* Shared keyboard-focus treatment for interactive controls. Applied instead
+     of (not in addition to) the browser default outline. */
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas;
+  }
+
+  /* Shared text-input treatment (Input, Textarea, Select). */
+  .field-control {
+    @apply block w-full rounded-field border border-edge bg-surface px-3 py-2 text-sm text-ink shadow-[0_1px_1px_rgb(12_20_15/0.02)] outline-none transition placeholder:text-ink-faint focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 disabled:cursor-not-allowed disabled:bg-canvas-subtle disabled:text-ink-faint;
+  }
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
