@@ -1,10 +1,15 @@
 "use client";
 
 import type { TaskStatus } from "@devflow/shared";
+import { Plus, SearchX } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AppFrame, FullPageLoader } from "@/components/app/AppFrame";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   ApiError,
   getOrganization,
@@ -163,96 +168,90 @@ export default function ProjectBoardPage() {
   }
 
   if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-500">Loading…</p>
-      </main>
-    );
+    return <FullPageLoader />;
   }
 
   // VIEWER is read-only; everyone else may move tasks (matches the PATCH /tasks API).
   const canManage = organization ? organization.role !== "VIEWER" : false;
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-950">
-      <div className="mx-auto w-full max-w-6xl px-6 py-10">
-        <Link
-          href={`/projects/${projectId}`}
-          className="text-sm font-medium text-emerald-700 hover:underline"
-        >
-          ← Back to project
-        </Link>
-
-        {notFound ? (
-          <div className="mt-8 rounded-md border border-neutral-200 bg-white px-6 py-12 text-center">
-            <h1 className="text-lg font-semibold">Board not found</h1>
-            <p className="mt-2 text-sm text-neutral-600">
-              This project does not exist or you do not have access to it.
-            </p>
-          </div>
-        ) : error ? (
-          <p className="mt-8 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : !project ? (
-          <p className="mt-8 text-sm text-neutral-500">Loading board…</p>
-        ) : (
-          <>
-            <header className="mt-6 flex flex-col gap-2 border-b border-neutral-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm text-neutral-500">{project.name}</p>
-                <h1 className="mt-1 text-2xl font-semibold">Board</h1>
-              </div>
-              {canManage ? (
+    <AppFrame
+      user={user}
+      width="wide"
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        project
+          ? { label: project.name, href: `/projects/${project.id}` }
+          : { label: "Project" },
+        { label: "Board" },
+      ]}
+    >
+      {notFound ? (
+        <EmptyState
+          variant="filtered"
+          icon={SearchX}
+          title="Board not found"
+          description="This project does not exist or you do not have access to it."
+        />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : !project ? (
+        <LoadingState label="Loading board…" />
+      ) : (
+        <>
+          <PageHeader
+            eyebrow={project.name}
+            title="Board"
+            actions={
+              canManage ? (
                 <Link
                   href={`/projects/${project.id}/tasks/new`}
-                  className="shrink-0 rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
+                  className={buttonClasses("primary")}
                 >
+                  <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
                   New task
                 </Link>
-              ) : null}
-            </header>
+              ) : undefined
+            }
+          />
 
-            {moveError ? (
-              <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {moveError}
-              </p>
-            ) : null}
+          {moveError ? (
+            <div className="mt-4" aria-live="polite">
+              <ErrorState message={moveError} />
+            </div>
+          ) : null}
 
-            <div className="mt-6">
-              {tasksError ? (
-                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {tasksError}
-                </p>
-              ) : tasks === null ? (
-                <p className="text-sm text-neutral-500">Loading tasks…</p>
-              ) : tasks.length === 0 ? (
-                <div className="rounded-md border border-dashed border-neutral-300 bg-white px-6 py-12 text-center">
-                  <h3 className="text-base font-semibold text-neutral-950">No tasks yet</h3>
-                  <p className="mx-auto mt-2 max-w-sm text-sm text-neutral-600">
-                    Tasks you create will appear on this board, grouped by status.
-                  </p>
-                  {canManage ? (
+          <div className="mt-6">
+            {tasksError ? (
+              <ErrorState message={tasksError} />
+            ) : tasks === null ? (
+              <LoadingState label="Loading tasks…" />
+            ) : tasks.length === 0 ? (
+              <EmptyState
+                title="No tasks yet"
+                description="Tasks you create will appear on this board, grouped by status."
+                action={
+                  canManage ? (
                     <Link
                       href={`/projects/${project.id}/tasks/new`}
-                      className="mt-6 inline-block rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
+                      className={buttonClasses("primary")}
                     >
                       Create task
                     </Link>
-                  ) : null}
-                </div>
-              ) : (
-                <KanbanBoard
-                  tasks={tasks}
-                  canManage={canManage}
-                  movingTaskIds={movingTaskIds}
-                  onMove={handleMove}
-                />
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </main>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <KanbanBoard
+                tasks={tasks}
+                canManage={canManage}
+                movingTaskIds={movingTaskIds}
+                onMove={handleMove}
+              />
+            )}
+          </div>
+        </>
+      )}
+    </AppFrame>
   );
 }

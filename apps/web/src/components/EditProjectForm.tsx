@@ -3,6 +3,8 @@
 import { updateProjectSchema } from "@devflow/shared";
 import { useState, type FormEvent } from "react";
 import { FormAlert, SubmitButton, TextField } from "@/components/AuthCard";
+import { Button } from "@/components/ui/Button";
+import { fieldErrorProps, FormField, Textarea } from "@/components/ui/fields";
 import { ApiError, updateProject, type Project } from "@/lib/api";
 
 type FieldErrors = Partial<Record<"name" | "description", string>>;
@@ -71,39 +73,24 @@ export function EditProjectForm({ project, onCancel, onSaved }: EditProjectFormP
         onChange={setName}
       />
 
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-neutral-700">
-          Description (optional)
-        </label>
-        <textarea
+      <FormField htmlFor="description" label="Description (optional)" error={fieldErrors.description}>
+        <Textarea
           id="description"
           name="description"
           rows={4}
           value={description}
-          aria-invalid={fieldErrors.description ? true : undefined}
-          aria-describedby={fieldErrors.description ? "description-error" : undefined}
           onChange={(event) => setDescription(event.target.value)}
-          className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+          {...fieldErrorProps("description", fieldErrors.description)}
         />
-        {fieldErrors.description ? (
-          <p id="description-error" className="mt-1 text-sm text-red-600">
-            {fieldErrors.description}
-          </p>
-        ) : null}
-      </div>
+      </FormField>
 
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <SubmitButton label="Save changes" pendingLabel="Saving…" isPending={isSubmitting} />
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button onClick={onCancel} disabled={isSubmitting}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

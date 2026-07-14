@@ -1,10 +1,14 @@
 "use client";
 
+import { SearchX } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthCard } from "@/components/AuthCard";
+import { FullPageLoader } from "@/components/app/AppFrame";
 import { CreateTaskForm } from "@/components/CreateTaskForm";
+import { buttonClasses } from "@/components/ui/Button";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import {
   ApiError,
   getOrganizationMembers,
@@ -62,27 +66,24 @@ export default function NewTaskPage() {
   }, [user, projectId]);
 
   if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-500">Loading…</p>
-      </main>
-    );
+    return <FullPageLoader />;
   }
 
   if (notFound) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
-        <div className="w-full max-w-md rounded-md border border-neutral-200 bg-white px-6 py-12 text-center">
-          <h1 className="text-lg font-semibold">Project not found</h1>
-          <p className="mt-2 text-sm text-neutral-600">
-            This project does not exist or you do not have access to it.
-          </p>
-          <Link
-            href="/dashboard"
-            className="mt-6 inline-block text-sm font-medium text-emerald-700 hover:underline"
-          >
-            ← Back to dashboard
-          </Link>
+      <main className="flex min-h-screen items-center justify-center bg-canvas px-4">
+        <div className="w-full max-w-md">
+          <EmptyState
+            variant="filtered"
+            icon={SearchX}
+            title="Project not found"
+            description="This project does not exist or you do not have access to it."
+            action={
+              <Link href="/dashboard" className={buttonClasses("secondary")}>
+                Back to dashboard
+              </Link>
+            }
+          />
         </div>
       </main>
     );
@@ -90,26 +91,23 @@ export default function NewTaskPage() {
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
+      <main className="flex min-h-screen items-center justify-center bg-canvas px-4">
+        <div className="w-full max-w-md">
+          <ErrorState message={error} />
+        </div>
       </main>
     );
   }
 
   if (!project) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-500">Loading project…</p>
-      </main>
-    );
+    return <FullPageLoader label="Loading project…" />;
   }
 
   return (
     <AuthCard
       title="Create a task"
       description={`Add a task to ${project.name}.`}
+      width="lg"
       footer={{
         prompt: "Changed your mind?",
         linkLabel: "Back to project",

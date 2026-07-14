@@ -1,4 +1,7 @@
+import { ArrowRight, FolderKanban } from "lucide-react";
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/states";
 import type { Project } from "@/lib/api";
 
 type EmptyProjectsStateProps = {
@@ -9,20 +12,21 @@ type EmptyProjectsStateProps = {
 
 export function EmptyProjectsState({ organizationId, canCreate }: EmptyProjectsStateProps) {
   return (
-    <div className="rounded-md border border-dashed border-neutral-300 bg-white px-6 py-12 text-center">
-      <h3 className="text-base font-semibold text-neutral-950">No projects yet</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-neutral-600">
-        Projects organize your team&apos;s work. Create your first one to get started.
-      </p>
-      {canCreate ? (
-        <Link
-          href={`/organizations/${organizationId}/projects/new`}
-          className="mt-6 inline-block rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
-        >
-          Create project
-        </Link>
-      ) : null}
-    </div>
+    <EmptyState
+      icon={FolderKanban}
+      title="No projects yet"
+      description="Projects organize your team's work. Create your first one to get started."
+      action={
+        canCreate ? (
+          <Link
+            href={`/organizations/${organizationId}/projects/new`}
+            className={buttonClasses("primary")}
+          >
+            Create project
+          </Link>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -36,27 +40,30 @@ function formatDate(value: string) {
 
 export function ProjectCard({ project }: { project: Project }) {
   return (
-    <li className="flex flex-col gap-3 rounded-md border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 rounded-card border border-edge-subtle bg-surface p-5 transition-shadow hover:shadow-raised sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <Link
           href={`/projects/${project.id}`}
-          className="truncate text-base font-semibold text-neutral-950 hover:underline"
+          className="focus-ring truncate rounded text-title text-ink hover:text-brand-800"
         >
           {project.name}
         </Link>
         {project.description ? (
-          <p className="mt-1 truncate text-sm text-neutral-600">{project.description}</p>
+          <p className="mt-1 truncate text-sm text-ink-secondary">{project.description}</p>
         ) : (
-          <p className="mt-1 text-sm italic text-neutral-400">No description</p>
+          <p className="mt-1 text-sm text-ink-faint">No description</p>
         )}
-        <p className="mt-1 text-xs text-neutral-500">Created {formatDate(project.createdAt)}</p>
+        <p className="mt-1.5 text-xs tabular-nums text-ink-muted">
+          Created {formatDate(project.createdAt)}
+        </p>
       </div>
 
       <Link
         href={`/projects/${project.id}`}
-        className="shrink-0 self-start rounded-md px-3 py-1.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 sm:self-auto"
+        className={`${buttonClasses("tint", "sm")} shrink-0 self-start sm:self-auto`}
       >
         View
+        <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
       </Link>
     </li>
   );

@@ -1,5 +1,12 @@
+"use client";
+
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { BrandMark } from "@/components/ui/BrandMark";
+import { Button } from "@/components/ui/Button";
+import { fieldErrorProps, FormField, Input } from "@/components/ui/fields";
 
 type AuthCardProps = {
   title: string;
@@ -9,27 +16,37 @@ type AuthCardProps = {
     linkLabel: string;
     linkHref: string;
   };
+  /** "md" fits credential forms; "lg" gives multi-field forms room to breathe. */
+  width?: "md" | "lg";
   children: ReactNode;
 };
 
-export function AuthCard({ title, description, footer, children }: AuthCardProps) {
+/**
+ * Centered focused-task surface used by the auth pages and the create flows
+ * (organization / project / task). One calm card on the canvas, brand on top,
+ * a single escape hatch below.
+ */
+export function AuthCard({ title, description, footer, width = "md", children }: AuthCardProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-10 text-neutral-950">
-      <div className="w-full max-w-md">
-        <p className="mb-6 text-center text-sm font-semibold uppercase tracking-wide text-emerald-700">
-          <Link href="/">DevFlow</Link>
-        </p>
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10 text-ink">
+      <div className={`w-full ${width === "lg" ? "max-w-xl" : "max-w-md"}`}>
+        <div className="mb-6 flex justify-center">
+          <BrandMark href="/" />
+        </div>
 
-        <div className="rounded-md border border-neutral-200 bg-white p-6 sm:p-8">
-          <h1 className="text-2xl font-semibold text-neutral-950">{title}</h1>
-          <p className="mt-1 text-sm text-neutral-600">{description}</p>
+        <div className="rounded-modal border border-edge-subtle bg-surface p-6 shadow-raised sm:p-8">
+          <h1 className="text-headline text-ink">{title}</h1>
+          <p className="mt-1.5 text-sm leading-6 text-ink-muted">{description}</p>
 
           <div className="mt-6">{children}</div>
         </div>
 
-        <p className="mt-4 text-center text-sm text-neutral-600">
+        <p className="mt-5 text-center text-sm text-ink-muted">
           {footer.prompt}{" "}
-          <Link href={footer.linkHref} className="font-medium text-emerald-700 hover:underline">
+          <Link
+            href={footer.linkHref}
+            className="focus-ring rounded font-medium text-brand-700 hover:text-brand-800 hover:underline"
+          >
             {footer.linkLabel}
           </Link>
         </p>
@@ -48,54 +65,71 @@ type TextFieldProps = {
   onChange: (value: string) => void;
 };
 
-export function TextField({ label, name, type, value, autoComplete, error, onChange }: TextFieldProps) {
-  const errorId = `${name}-error`;
+/**
+ * Single-line labelled input. Password fields get a visibility toggle; the
+ * value and change handling are untouched by the toggle.
+ */
+export function TextField({
+  label,
+  name,
+  type,
+  value,
+  autoComplete,
+  error,
+  onChange,
+}: TextFieldProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword && showPassword ? "text" : type;
 
   return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-neutral-700">
-        {label}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        value={value}
-        autoComplete={autoComplete}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
-      />
-      {error ? (
-        <p id={errorId} className="mt-1 text-sm text-red-600">
-          {error}
-        </p>
-      ) : null}
-    </div>
+    <FormField htmlFor={name} label={label} error={error}>
+      <div className="relative">
+        <Input
+          id={name}
+          name={name}
+          type={inputType}
+          value={value}
+          autoComplete={autoComplete}
+          onChange={(event) => onChange(event.target.value)}
+          className={isPassword ? "pr-10" : undefined}
+          {...fieldErrorProps(name, error)}
+        />
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setShowPassword((current) => !current)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="focus-ring absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-field text-ink-muted transition-colors hover:text-ink"
+          >
+            {showPassword ? (
+              <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            )}
+          </button>
+        ) : null}
+      </div>
+    </FormField>
   );
 }
 
 export function FormAlert({ message }: { message: string }) {
-  return (
-    <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {message}
-    </p>
-  );
+  return <Alert>{message}</Alert>;
 }
 
-export function SubmitButton({ label, pendingLabel, isPending }: {
+export function SubmitButton({
+  label,
+  pendingLabel,
+  isPending,
+}: {
   label: string;
   pendingLabel: string;
   isPending: boolean;
 }) {
   return (
-    <button
-      type="submit"
-      disabled={isPending}
-      className="w-full rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-    >
+    <Button type="submit" variant="primary" isLoading={isPending} className="w-full">
       {isPending ? pendingLabel : label}
-    </button>
+    </Button>
   );
 }
