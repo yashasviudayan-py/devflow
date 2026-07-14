@@ -1,5 +1,6 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type SearchInputProps = {
@@ -12,9 +13,6 @@ type SearchInputProps = {
   delayMs?: number;
   label?: string;
 };
-
-const inputClassName =
-  "block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
 
 /**
  * Debounced search box. Keeps its own text state for responsiveness and only
@@ -50,15 +48,20 @@ export function SearchInput({
   }, [text, value, delayMs]);
 
   return (
-    <label className="block flex-1 text-sm font-medium text-neutral-700">
-      {label ? <span className="mb-1 block">{label}</span> : null}
+    <label className="relative block flex-1">
+      <span className="sr-only">{label ?? placeholder}</span>
+      <Search
+        aria-hidden
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
+        strokeWidth={1.75}
+      />
       <input
         type="search"
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder={placeholder}
         aria-label={label ?? placeholder}
-        className={inputClassName}
+        className="field-control pl-9"
       />
     </label>
   );

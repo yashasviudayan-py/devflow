@@ -1,11 +1,17 @@
 "use client";
 
+import { Archive, Columns3, PencilLine, SearchX } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ActivitySection } from "@/components/ActivitySection";
+import { AppFrame, FullPageLoader } from "@/components/app/AppFrame";
 import { EditProjectForm } from "@/components/EditProjectForm";
 import { TasksSection } from "@/components/TasksSection";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   ApiError,
   deleteProject,
@@ -115,11 +121,7 @@ export default function ProjectDetailPage() {
   }
 
   if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-500">Loading…</p>
-      </main>
-    );
+    return <FullPageLoader />;
   }
 
   // Only OWNER/ADMIN can edit or archive, mirroring the API authorization.
@@ -128,117 +130,105 @@ export default function ProjectDetailPage() {
   const canCreateTask = organization ? organization.role !== "VIEWER" : false;
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-950">
-      <div className="mx-auto w-full max-w-3xl px-6 py-10">
-        <Link
-          href={project ? `/organizations/${project.organizationId}` : "/dashboard"}
-          className="text-sm font-medium text-emerald-700 hover:underline"
-        >
-          ← Back to organization
-        </Link>
-
-        {notFound ? (
-          <div className="mt-8 rounded-md border border-neutral-200 bg-white px-6 py-12 text-center">
-            <h1 className="text-lg font-semibold">Project not found</h1>
-            <p className="mt-2 text-sm text-neutral-600">
-              This project does not exist or you do not have access to it.
-            </p>
+    <AppFrame
+      user={user}
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        organization
+          ? { label: organization.name, href: `/organizations/${organization.id}` }
+          : { label: "Organization" },
+        { label: project ? project.name : "Project" },
+      ]}
+    >
+      {notFound ? (
+        <EmptyState
+          variant="filtered"
+          icon={SearchX}
+          title="Project not found"
+          description="This project does not exist or you do not have access to it."
+        />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : !project || !organization ? (
+        <LoadingState label="Loading project…" />
+      ) : isEditing ? (
+        <Card className="p-6">
+          <h1 className="text-headline text-ink">Edit project</h1>
+          <div className="mt-5">
+            <EditProjectForm
+              project={project}
+              onCancel={() => setIsEditing(false)}
+              onSaved={(updated) => {
+                setProject(updated);
+                setIsEditing(false);
+              }}
+            />
           </div>
-        ) : error ? (
-          <p className="mt-8 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : !project || !organization ? (
-          <p className="mt-8 text-sm text-neutral-500">Loading project…</p>
-        ) : isEditing ? (
-          <section className="mt-6 rounded-md border border-neutral-200 bg-white p-6">
-            <h1 className="text-lg font-semibold">Edit project</h1>
+        </Card>
+      ) : (
+        <>
+          <PageHeader
+            title={project.name}
+            actions={
+              <>
+                <Link href={`/projects/${project.id}/board`} className={buttonClasses("secondary")}>
+                  <Columns3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Board
+                </Link>
+                {canManage ? (
+                  <>
+                    <Button
+                      onClick={() => {
+                        setActionError(null);
+                        setIsEditing(true);
+                      }}
+                    >
+                      <PencilLine aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      Edit
+                    </Button>
+                    <Button variant="destructive" onClick={handleArchive} isLoading={isArchiving}>
+                      <Archive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      {isArchiving ? "Archiving…" : "Archive"}
+                    </Button>
+                  </>
+                ) : null}
+              </>
+            }
+          />
+
+          {actionError ? (
             <div className="mt-4">
-              <EditProjectForm
-                project={project}
-                onCancel={() => setIsEditing(false)}
-                onSaved={(updated) => {
-                  setProject(updated);
-                  setIsEditing(false);
-                }}
-              />
+              <ErrorState message={actionError} />
             </div>
-          </section>
-        ) : (
-          <>
-            <header className="mt-6 flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm text-neutral-500">
-                  <Link
-                    href={`/organizations/${organization.id}`}
-                    className="font-medium text-neutral-700 hover:underline"
-                  >
-                    {organization.name}
-                  </Link>
-                </p>
-                <h1 className="mt-1 text-2xl font-semibold">{project.name}</h1>
-              </div>
+          ) : null}
 
-              {canManage ? (
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActionError(null);
-                      setIsEditing(true);
-                    }}
-                    className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleArchive}
-                    disabled={isArchiving}
-                    className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isArchiving ? "Archiving…" : "Archive"}
-                  </button>
-                </div>
-              ) : null}
-            </header>
-
-            {actionError ? (
-              <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {actionError}
+          <Card className="mt-6 p-6">
+            <h2 className="text-sm font-semibold text-ink-secondary">Description</h2>
+            {project.description ? (
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-ink-secondary">
+                {project.description}
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-2 text-sm text-ink-faint">No description provided.</p>
+            )}
 
-            <section className="mt-6 rounded-md border border-neutral-200 bg-white p-6">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
-                Description
-              </h2>
-              {project.description ? (
-                <p className="mt-2 whitespace-pre-line text-sm text-neutral-800">
-                  {project.description}
-                </p>
-              ) : (
-                <p className="mt-2 text-sm italic text-neutral-400">No description provided.</p>
-              )}
+            <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-edge-subtle pt-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-ink-muted">Created</dt>
+                <dd className="mt-0.5 tabular-nums text-ink">{formatDateTime(project.createdAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-muted">Last updated</dt>
+                <dd className="mt-0.5 tabular-nums text-ink">{formatDateTime(project.updatedAt)}</dd>
+              </div>
+            </dl>
+          </Card>
 
-              <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-neutral-200 pt-4 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-neutral-500">Created</dt>
-                  <dd className="mt-0.5 text-neutral-800">{formatDateTime(project.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt className="text-neutral-500">Last updated</dt>
-                  <dd className="mt-0.5 text-neutral-800">{formatDateTime(project.updatedAt)}</dd>
-                </div>
-              </dl>
-            </section>
+          <TasksSection projectId={project.id} canCreate={canCreateTask} members={members} />
 
-            <TasksSection projectId={project.id} canCreate={canCreateTask} members={members} />
-
-            <ActivitySection source="project" id={project.id} members={members} />
-          </>
-        )}
-      </div>
-    </main>
+          <ActivitySection source="project" id={project.id} members={members} />
+        </>
+      )}
+    </AppFrame>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/fields";
 import type { SortOrder } from "@/lib/listQuery";
 
 type SortOption = {
@@ -14,9 +15,6 @@ type SortControlsProps = {
   onChange: (next: { sortBy: string | undefined; sortOrder: SortOrder | undefined }) => void;
 };
 
-const selectClassName =
-  "block rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
-
 /**
  * "Sort by" + order controls. The empty `sortBy` option ("Default") maps to no
  * `sortBy` param, which the API treats as its default (createdAt). Order applies
@@ -24,34 +22,35 @@ const selectClassName =
  */
 export function SortControls({ sortBy, sortOrder, options, onChange }: SortControlsProps) {
   return (
-    <div className="flex items-end gap-2">
-      <label className="text-sm font-medium text-neutral-700">
-        <span className="mb-1 block">Sort by</span>
-        <select
+    <div className="flex items-center gap-2">
+      <label className="block">
+        <span className="sr-only">Sort by</span>
+        <Select
           value={sortBy ?? ""}
           onChange={(event) => onChange({ sortBy: event.target.value || undefined, sortOrder })}
-          className={selectClassName}
+          aria-label="Sort by"
+          className="w-auto"
         >
-          <option value="">Default</option>
+          <option value="">Sort: Default</option>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              Sort: {option.label}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
-      <label className="text-sm font-medium text-neutral-700">
-        <span className="mb-1 block">Order</span>
-        <select
+      <label className="block">
+        <span className="sr-only">Sort order</span>
+        <Select
           value={sortOrder ?? "asc"}
           onChange={(event) => onChange({ sortBy, sortOrder: event.target.value as SortOrder })}
-          className={selectClassName}
           aria-label="Sort order"
+          className="w-auto"
         >
           <option value="asc">Ascending</option>
           <option value="desc">Descending</option>
-        </select>
+        </Select>
       </label>
     </div>
   );

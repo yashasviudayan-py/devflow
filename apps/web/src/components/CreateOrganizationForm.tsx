@@ -76,7 +76,7 @@ export function CreateOrganizationForm() {
           error={fieldErrors.slug}
           onChange={setSlug}
         />
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1.5 text-xs text-ink-muted">
           Lowercase letters, numbers, and hyphens. Leave blank to generate one from the name.
         </p>
       </div>

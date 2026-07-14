@@ -3,15 +3,13 @@
 import { createCommentSchema } from "@devflow/shared";
 import { useState, type FormEvent } from "react";
 import { FormAlert, SubmitButton } from "@/components/AuthCard";
+import { fieldErrorProps, FormField, Textarea } from "@/components/ui/fields";
 import { ApiError, createTaskComment, type Comment } from "@/lib/api";
 
 type CommentFormProps = {
   taskId: string;
   onCreated: (comment: Comment) => void;
 };
-
-const textareaClassName =
-  "mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
 
 export function CommentForm({ taskId, onCreated }: CommentFormProps) {
   const [body, setBody] = useState("");
@@ -56,27 +54,17 @@ export function CommentForm({ taskId, onCreated }: CommentFormProps) {
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3">
       {formError ? <FormAlert message={formError} /> : null}
 
-      <div>
-        <label htmlFor="comment-body" className="block text-sm font-medium text-neutral-700">
-          Add a comment
-        </label>
-        <textarea
+      <FormField htmlFor="comment-body" label="Add a comment" error={fieldError}>
+        <Textarea
           id="comment-body"
           name="body"
           rows={3}
           value={body}
           placeholder="Share an update or ask a question…"
-          aria-invalid={fieldError ? true : undefined}
-          aria-describedby={fieldError ? "comment-body-error" : undefined}
           onChange={(event) => setBody(event.target.value)}
-          className={textareaClassName}
+          {...fieldErrorProps("comment-body", fieldError)}
         />
-        {fieldError ? (
-          <p id="comment-body-error" className="mt-1 text-sm text-red-600">
-            {fieldError}
-          </p>
-        ) : null}
-      </div>
+      </FormField>
 
       <div className="sm:max-w-[12rem]">
         <SubmitButton label="Post comment" pendingLabel="Posting…" isPending={isSubmitting} />

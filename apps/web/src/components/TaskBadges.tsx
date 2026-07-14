@@ -1,30 +1,45 @@
 import type { TaskPriority, TaskStatus } from "@devflow/shared";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
-// Human-readable labels and Tailwind colour classes for the API's enum values.
-// Keeping these in one place means cards, detail views, and filters stay consistent.
-const statusStyles: Record<TaskStatus, { label: string; className: string }> = {
-  TODO: { label: "To do", className: "bg-neutral-100 text-neutral-700" },
-  IN_PROGRESS: { label: "In progress", className: "bg-blue-100 text-blue-700" },
-  IN_REVIEW: { label: "In review", className: "bg-amber-100 text-amber-700" },
-  DONE: { label: "Done", className: "bg-emerald-100 text-emerald-700" },
-  CANCELED: { label: "Canceled", className: "bg-neutral-200 text-neutral-500" },
+// Human-readable labels and badge tones for the API's enum values. Keeping
+// these in one place means cards, detail views, and the board stay consistent.
+// Every badge pairs its tint with a label and a dot, so state is never
+// communicated by color alone.
+const statusTones: Record<TaskStatus, { label: string; tone: BadgeTone }> = {
+  TODO: { label: "To do", tone: "neutral" },
+  IN_PROGRESS: { label: "In progress", tone: "info" },
+  IN_REVIEW: { label: "In review", tone: "warning" },
+  DONE: { label: "Done", tone: "brand" },
+  CANCELED: { label: "Canceled", tone: "faint" },
 };
 
-const priorityStyles: Record<TaskPriority, { label: string; className: string }> = {
-  LOW: { label: "Low", className: "bg-neutral-100 text-neutral-600" },
-  MEDIUM: { label: "Medium", className: "bg-sky-100 text-sky-700" },
-  HIGH: { label: "High", className: "bg-orange-100 text-orange-700" },
-  URGENT: { label: "Urgent", className: "bg-red-100 text-red-700" },
+const priorityTones: Record<TaskPriority, { label: string; tone: BadgeTone }> = {
+  LOW: { label: "Low", tone: "neutral" },
+  MEDIUM: { label: "Medium", tone: "info" },
+  HIGH: { label: "High", tone: "warning" },
+  URGENT: { label: "Urgent", tone: "danger" },
 };
 
-const badgeBase = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+// Dot colors reused by the Kanban column headers so the board's status
+// indicators match the badges exactly.
+export const statusDotClasses: Record<TaskStatus, string> = {
+  TODO: "bg-ink-faint",
+  IN_PROGRESS: "bg-sky-500",
+  IN_REVIEW: "bg-amber-500",
+  DONE: "bg-brand-600",
+  CANCELED: "bg-edge-strong",
+};
 
 export function TaskStatusBadge({ status }: { status: TaskStatus }) {
-  const { label, className } = statusStyles[status];
-  return <span className={`${badgeBase} ${className}`}>{label}</span>;
+  const { label, tone } = statusTones[status];
+  return (
+    <Badge tone={tone} dot>
+      {label}
+    </Badge>
+  );
 }
 
 export function TaskPriorityBadge({ priority }: { priority: TaskPriority }) {
-  const { label, className } = priorityStyles[priority];
-  return <span className={`${badgeBase} ${className}`}>{label}</span>;
+  const { label, tone } = priorityTones[priority];
+  return <Badge tone={tone}>{label}</Badge>;
 }

@@ -4,6 +4,8 @@ import type { UserRole } from "@devflow/shared";
 import { useEffect, useState } from "react";
 import { CommentForm } from "@/components/CommentForm";
 import { CommentItem } from "@/components/CommentItem";
+import { SectionHeader } from "@/components/ui/Card";
+import { ErrorState, LoadingState } from "@/components/ui/states";
 import { getTaskComments, type Comment } from "@/lib/api";
 
 type CommentsSectionProps = {
@@ -67,24 +69,23 @@ export function CommentsSection({
   }
 
   return (
-    <section className="mt-6 rounded-md border border-neutral-200 bg-white p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
-        Comments
-      </h2>
+    <section className="mt-10">
+      <SectionHeader
+        title="Comments"
+        count={state === "ready" ? comments.length : undefined}
+      />
 
       <div className="mt-4">
         {state === "loading" ? (
-          <p className="text-sm text-neutral-500">Loading comments…</p>
+          <LoadingState label="Loading comments…" />
         ) : state === "error" ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            Could not load comments. Please refresh to try again.
-          </p>
+          <ErrorState message="Could not load comments. Please refresh to try again." />
         ) : comments.length === 0 ? (
-          <p className="text-sm italic text-neutral-400">
-            No comments yet. {canComment ? "Start the conversation below." : ""}
+          <p className="rounded-card border border-edge-subtle bg-surface px-4 py-6 text-center text-sm text-ink-muted">
+            No comments yet.{canComment ? " Start the conversation below." : ""}
           </p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-5">
             {comments.map((comment) => (
               <CommentItem
                 key={comment.id}
@@ -100,11 +101,11 @@ export function CommentsSection({
       </div>
 
       {canComment ? (
-        <div className="mt-6 border-t border-neutral-200 pt-6">
+        <div className="mt-6 border-t border-edge-subtle pt-6">
           <CommentForm taskId={taskId} onCreated={handleCreated} />
         </div>
       ) : (
-        <p className="mt-6 border-t border-neutral-200 pt-6 text-sm text-neutral-500">
+        <p className="mt-6 border-t border-edge-subtle pt-6 text-sm text-ink-muted">
           You have read-only access and cannot post comments.
         </p>
       )}

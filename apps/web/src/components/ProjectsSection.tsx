@@ -1,6 +1,7 @@
 "use client";
 
 import { projectSortFields } from "@devflow/shared";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,6 +10,9 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { EmptyProjectsState, ProjectList } from "@/components/ProjectList";
 import { SearchInput } from "@/components/SearchInput";
 import { SortControls } from "@/components/SortControls";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { SectionHeader } from "@/components/ui/Card";
+import { ErrorState, LoadingState } from "@/components/ui/states";
 import { getOrganizationProjects, type Project } from "@/lib/api";
 import { projectSortOptions } from "@/lib/listOptions";
 import {
@@ -90,28 +94,31 @@ export function ProjectsSection({ organizationId, canCreate }: ProjectsSectionPr
   const showPagination = projects !== null && (hasProjects || pageIndex > 0);
 
   return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Projects</h2>
-        {canCreate && hasProjects ? (
-          <Link
-            href={`/organizations/${organizationId}/projects/new`}
-            className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
-          >
-            New project
-          </Link>
-        ) : null}
-      </div>
+    <section className="mt-10">
+      <SectionHeader
+        title="Projects"
+        actions={
+          canCreate && hasProjects ? (
+            <Link
+              href={`/organizations/${organizationId}/projects/new`}
+              className={buttonClasses("primary", "sm")}
+            >
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+              New project
+            </Link>
+          ) : undefined
+        }
+      />
 
       {showControls ? (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <SearchInput
             value={q}
             onChange={(value) => applyParams({ q: value || undefined })}
             placeholder="Search projects…"
-            label="Search"
+            label="Search projects"
           />
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
             <SortControls
               sortBy={sortBy}
               sortOrder={sortOrder}
@@ -119,13 +126,9 @@ export function ProjectsSection({ organizationId, canCreate }: ProjectsSectionPr
               onChange={(next) => applyParams({ sortBy: next.sortBy, sortOrder: next.sortOrder })}
             />
             {isFiltered ? (
-              <button
-                type="button"
-                onClick={() => applyParams({ q: undefined })}
-                className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-              >
+              <Button variant="ghost" onClick={() => applyParams({ q: undefined })}>
                 Reset
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
@@ -133,11 +136,9 @@ export function ProjectsSection({ organizationId, canCreate }: ProjectsSectionPr
 
       <div className="mt-4">
         {error ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
+          <ErrorState message={error} />
         ) : projects === null ? (
-          <p className="text-sm text-neutral-500">Loading projects…</p>
+          <LoadingState label="Loading projects…" />
         ) : projects.length === 0 ? (
           isFiltered ? (
             <EmptyFilteredState noun="projects" onReset={() => applyParams({ q: undefined })} />

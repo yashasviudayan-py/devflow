@@ -1,7 +1,10 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
+import { BrandMark } from "@/components/ui/BrandMark";
+import { Button, buttonClasses } from "@/components/ui/Button";
 
 /**
  * Route-segment error boundary. Next.js renders this when a Client Component in
@@ -23,26 +26,24 @@ export default function AppError({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-6 text-neutral-950">
-      <div className="w-full max-w-md rounded-md border border-neutral-200 bg-white p-8 text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">DevFlow</p>
-        <h1 className="mt-3 text-2xl font-semibold text-neutral-950">Something went wrong</h1>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-6 text-ink">
+      <div className="w-full max-w-md rounded-modal border border-edge-subtle bg-surface p-8 text-center shadow-raised">
+        <div className="flex justify-center">
+          <BrandMark href="/" />
+        </div>
+        <span className="mx-auto mt-6 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+          <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        </span>
+        <h1 className="mt-4 text-headline text-ink">Something went wrong</h1>
+        <p className="mt-2 text-sm leading-6 text-ink-muted">
           An unexpected error occurred while loading this page. You can try again, or head back to
           your dashboard.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <button
-            type="button"
-            onClick={reset}
-            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
-          >
+          <Button variant="primary" onClick={reset}>
             Try again
-          </button>
-          <Link
-            href="/dashboard"
-            className="rounded-md border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-          >
+          </Button>
+          <Link href="/dashboard" className={buttonClasses("secondary")}>
             Go to dashboard
           </Link>
         </div>

@@ -16,7 +16,7 @@ export function NotificationBadge({ count }: NotificationBadgeProps) {
   return (
     <span
       aria-hidden
-      className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-700 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
+      className="inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-brand-600 px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-white ring-2 ring-surface"
     >
       {label}
     </span>

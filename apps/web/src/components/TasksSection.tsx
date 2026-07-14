@@ -1,6 +1,7 @@
 "use client";
 
 import { taskPriorities, taskSortFields, taskStatuses } from "@devflow/shared";
+import { Columns3, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +11,9 @@ import { SearchInput } from "@/components/SearchInput";
 import { SortControls } from "@/components/SortControls";
 import { TaskFilters, type TaskFiltersValue } from "@/components/TaskFilters";
 import { EmptyTasksState, TaskList } from "@/components/TaskList";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { SectionHeader } from "@/components/ui/Card";
+import { ErrorState, LoadingState } from "@/components/ui/states";
 import { getProjectTasks, type OrganizationMember, type Task } from "@/lib/api";
 import { taskSortOptions } from "@/lib/listOptions";
 import {
@@ -165,28 +169,29 @@ export function TasksSection({ projectId, canCreate, members }: TasksSectionProp
   const showPagination = tasks !== null && (hasTasks || pageIndex > 0);
 
   return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Tasks</h2>
-        {showContext ? (
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/projects/${projectId}/board`}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-            >
-              Board view
-            </Link>
-            {canCreate ? (
-              <Link
-                href={`/projects/${projectId}/tasks/new`}
-                className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800"
-              >
-                New task
+    <section className="mt-10">
+      <SectionHeader
+        title="Tasks"
+        actions={
+          showContext ? (
+            <>
+              <Link href={`/projects/${projectId}/board`} className={buttonClasses("secondary", "sm")}>
+                <Columns3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Board view
               </Link>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+              {canCreate ? (
+                <Link
+                  href={`/projects/${projectId}/tasks/new`}
+                  className={buttonClasses("primary", "sm")}
+                >
+                  <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  New task
+                </Link>
+              ) : null}
+            </>
+          ) : undefined
+        }
+      />
 
       {showContext ? (
         <div className="mt-4 flex flex-col gap-3">
@@ -194,10 +199,10 @@ export function TasksSection({ projectId, canCreate, members }: TasksSectionProp
             value={q}
             onChange={(value) => applyParams({ q: value || undefined })}
             placeholder="Search tasks…"
-            label="Search"
+            label="Search tasks"
           />
           <TaskFilters value={filtersValue} members={members} onChange={handleFiltersChange} />
-          <div className="flex items-end justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <SortControls
               sortBy={sortBy}
               sortOrder={sortOrder}
@@ -205,13 +210,9 @@ export function TasksSection({ projectId, canCreate, members }: TasksSectionProp
               onChange={(next) => applyParams({ sortBy: next.sortBy, sortOrder: next.sortOrder })}
             />
             {isFiltered ? (
-              <button
-                type="button"
-                onClick={resetAll}
-                className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-              >
+              <Button variant="ghost" onClick={resetAll}>
                 Reset filters
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
@@ -219,11 +220,9 @@ export function TasksSection({ projectId, canCreate, members }: TasksSectionProp
 
       <div className="mt-4">
         {error ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
+          <ErrorState message={error} />
         ) : tasks === null ? (
-          <p className="text-sm text-neutral-500">Loading tasks…</p>
+          <LoadingState label="Loading tasks…" />
         ) : tasks.length === 0 ? (
           isFiltered ? (
             <EmptyFilteredState noun="tasks" onReset={resetAll} />

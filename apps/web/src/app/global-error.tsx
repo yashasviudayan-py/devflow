@@ -29,14 +29,15 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#fafafa",
-          color: "#171717",
-          fontFamily: "system-ui, sans-serif",
+          background: "#f8faf9",
+          color: "#101512",
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Inter, Helvetica, Arial, sans-serif',
         }}
       >
         <div style={{ maxWidth: "28rem", padding: "2rem", textAlign: "center" }}>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 600 }}>Something went wrong</h1>
-          <p style={{ marginTop: "0.5rem", color: "#525252", lineHeight: 1.6 }}>
+          <p style={{ marginTop: "0.5rem", color: "#687168", lineHeight: 1.6 }}>
             DevFlow hit an unexpected error. Please reload the page and try again.
           </p>
           <button
@@ -44,7 +45,7 @@ export default function GlobalError({
             onClick={reset}
             style={{
               marginTop: "1.5rem",
-              borderRadius: "0.375rem",
+              borderRadius: "10px",
               border: "none",
               background: "#047857",
               color: "white",

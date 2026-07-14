@@ -15,10 +15,11 @@ export function KanbanBoard({ tasks, canManage, movingTaskIds, onMove }: KanbanB
   // Columns sit side by side on desktop (horizontal scroll if needed) and stack
   // vertically on small screens for readability.
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:overflow-x-auto sm:pb-2">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:overflow-x-auto sm:pb-3">
       {boardColumns.map((column) => (
         <KanbanColumn
           key={column.status}
+          status={column.status}
           label={column.label}
           tasks={grouped[column.status]}
           canManage={canManage}

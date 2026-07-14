@@ -1,6 +1,10 @@
 "use client";
 
+import { BellOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import { NotificationItem } from "./NotificationItem";
+import { Button } from "@/components/ui/Button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   ApiError,
   deleteNotification,
@@ -10,7 +14,6 @@ import {
   type Notification,
 } from "@/lib/api";
 import { unreadCount } from "@/lib/notification-format";
-import { NotificationItem } from "./NotificationItem";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -121,46 +124,49 @@ export function NotificationList() {
   }
 
   if (state === "loading") {
-    return <p className="mt-6 text-sm text-neutral-500">Loading notifications…</p>;
+    return (
+      <div className="mt-6">
+        <LoadingState label="Loading notifications…" />
+      </div>
+    );
   }
 
   if (state === "error") {
     return (
-      <p className="mt-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-        Could not load notifications. Please refresh to try again.
-      </p>
+      <div className="mt-6">
+        <ErrorState message="Could not load notifications. Please refresh to try again." />
+      </div>
     );
   }
 
   if (notifications.length === 0) {
     return (
-      <div className="mt-6 rounded-md border border-neutral-200 bg-white px-6 py-12 text-center">
-        <p className="text-sm font-medium text-neutral-700">You&rsquo;re all caught up</p>
-        <p className="mt-1 text-sm text-neutral-500">You have no notifications right now.</p>
+      <div className="mt-6">
+        <EmptyState
+          variant="filtered"
+          icon={BellOff}
+          title="You're all caught up"
+          description="You have no notifications right now. Updates about your tasks will appear here."
+        />
       </div>
     );
   }
 
   return (
     <div className="mt-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-neutral-500">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm tabular-nums text-ink-muted" aria-live="polite">
           {unread > 0 ? `${unread} unread` : "No unread notifications"}
         </p>
-        <button
-          type="button"
-          onClick={handleMarkAll}
-          disabled={isMarkingAll || unread === 0}
-          className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button size="sm" onClick={handleMarkAll} disabled={isMarkingAll || unread === 0}>
           {isMarkingAll ? "Marking…" : "Mark all as read"}
-        </button>
+        </Button>
       </div>
 
       {actionError ? (
-        <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {actionError}
-        </p>
+        <div className="mt-3">
+          <ErrorState message={actionError} />
+        </div>
       ) : null}
 
       <ul className="mt-4 flex flex-col gap-3">

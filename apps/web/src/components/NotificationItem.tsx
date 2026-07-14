@@ -1,4 +1,6 @@
+import { Trash2 } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import type { Notification } from "@/lib/api";
 import {
   notificationActorName,
@@ -39,28 +41,36 @@ export function NotificationItem({
 
   return (
     <li
-      className={`flex gap-3 rounded-md border px-4 py-3 ${
-        isUnread ? "border-emerald-200 bg-emerald-50/60" : "border-neutral-200 bg-white"
+      className={`flex gap-3 rounded-card border px-4 py-3.5 ${
+        isUnread ? "border-brand-200 bg-brand-50/50" : "border-edge-subtle bg-surface"
       }`}
     >
       <span
         aria-hidden
-        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-          isUnread ? "bg-emerald-600" : "bg-transparent"
+        className={`mt-2 h-2 w-2 shrink-0 rounded-full ${
+          isUnread ? "bg-brand-600" : "bg-transparent"
         }`}
       />
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-neutral-900">{title}</p>
-        <p className="mt-0.5 break-words text-sm text-neutral-700">{message}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
+        <p className={`text-sm text-ink ${isUnread ? "font-semibold" : "font-medium"}`}>
+          {title}
+          {isUnread ? <span className="sr-only"> (unread)</span> : null}
+        </p>
+        <p className="mt-0.5 break-words text-sm leading-6 text-ink-secondary">{message}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
           <span>{actorName}</span>
           <span aria-hidden>·</span>
-          <time dateTime={notification.createdAt}>{formatDateTime(notification.createdAt)}</time>
+          <time dateTime={notification.createdAt} className="tabular-nums">
+            {formatDateTime(notification.createdAt)}
+          </time>
           {href ? (
             <>
               <span aria-hidden>·</span>
-              <Link href={href} className="font-medium text-emerald-700 hover:underline">
+              <Link
+                href={href}
+                className="focus-ring rounded font-medium text-brand-700 hover:text-brand-800 hover:underline"
+              >
                 View
               </Link>
             </>
@@ -68,25 +78,23 @@ export function NotificationItem({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-2">
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
         {isUnread ? (
-          <button
-            type="button"
-            onClick={() => onMarkRead(notification.id)}
-            disabled={isBusy}
-            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button size="sm" onClick={() => onMarkRead(notification.id)} disabled={isBusy}>
             Mark read
-          </button>
+          </Button>
         ) : null}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => onDelete(notification.id)}
           disabled={isBusy}
-          className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="Delete notification"
+          title="Delete notification"
+          className="text-ink-muted hover:bg-red-50 hover:text-red-700"
         >
-          Delete
-        </button>
+          <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </Button>
       </div>
     </li>
   );

@@ -4,6 +4,7 @@ import { createTaskSchema, type TaskPriority, type TaskStatus } from "@devflow/s
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { FormAlert, SubmitButton, TextField } from "@/components/AuthCard";
+import { fieldErrorProps, FormField, Input, Select, Textarea } from "@/components/ui/fields";
 import { ApiError, createTask, type OrganizationMember } from "@/lib/api";
 import { priorityOptions, statusOptions } from "@/lib/taskOptions";
 
@@ -15,9 +16,6 @@ type CreateTaskFormProps = {
   // the dropdown still offers "Unassigned".
   members: OrganizationMember[];
 };
-
-const selectClassName =
-  "mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
 
 export function CreateTaskForm({ projectId, members }: CreateTaskFormProps) {
   const router = useRouter();
@@ -87,78 +85,56 @@ export function CreateTaskForm({ projectId, members }: CreateTaskFormProps) {
         onChange={setTitle}
       />
 
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-neutral-700">
-          Description (optional)
-        </label>
-        <textarea
+      <FormField htmlFor="description" label="Description (optional)" error={fieldErrors.description}>
+        <Textarea
           id="description"
           name="description"
           rows={4}
           value={description}
-          aria-invalid={fieldErrors.description ? true : undefined}
-          aria-describedby={fieldErrors.description ? "description-error" : undefined}
           onChange={(event) => setDescription(event.target.value)}
-          className={selectClassName}
+          {...fieldErrorProps("description", fieldErrors.description)}
         />
-        {fieldErrors.description ? (
-          <p id="description-error" className="mt-1 text-sm text-red-600">
-            {fieldErrors.description}
-          </p>
-        ) : null}
-      </div>
+      </FormField>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="status" className="block text-sm font-medium text-neutral-700">
-            Status
-          </label>
-          <select
+        <FormField htmlFor="status" label="Status">
+          <Select
             id="status"
             name="status"
             value={status}
             onChange={(event) => setStatus(event.target.value as TaskStatus)}
-            className={selectClassName}
           >
             {statusOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FormField>
 
-        <div>
-          <label htmlFor="priority" className="block text-sm font-medium text-neutral-700">
-            Priority
-          </label>
-          <select
+        <FormField htmlFor="priority" label="Priority">
+          <Select
             id="priority"
             name="priority"
             value={priority}
             onChange={(event) => setPriority(event.target.value as TaskPriority)}
-            className={selectClassName}
           >
             {priorityOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FormField>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="assigneeId" className="block text-sm font-medium text-neutral-700">
-            Assignee
-          </label>
-          <select
+        <FormField htmlFor="assigneeId" label="Assignee">
+          <Select
             id="assigneeId"
             name="assigneeId"
             value={assigneeId}
             onChange={(event) => setAssigneeId(event.target.value)}
-            className={selectClassName}
           >
             <option value="">Unassigned</option>
             {members.map((member) => (
@@ -166,29 +142,19 @@ export function CreateTaskForm({ projectId, members }: CreateTaskFormProps) {
                 {member.user.name}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FormField>
 
-        <div>
-          <label htmlFor="dueDate" className="block text-sm font-medium text-neutral-700">
-            Due date (optional)
-          </label>
-          <input
+        <FormField htmlFor="dueDate" label="Due date (optional)" error={fieldErrors.dueDate}>
+          <Input
             id="dueDate"
             name="dueDate"
             type="date"
             value={dueDate}
-            aria-invalid={fieldErrors.dueDate ? true : undefined}
-            aria-describedby={fieldErrors.dueDate ? "dueDate-error" : undefined}
             onChange={(event) => setDueDate(event.target.value)}
-            className={selectClassName}
+            {...fieldErrorProps("dueDate", fieldErrors.dueDate)}
           />
-          {fieldErrors.dueDate ? (
-            <p id="dueDate-error" className="mt-1 text-sm text-red-600">
-              {fieldErrors.dueDate}
-            </p>
-          ) : null}
-        </div>
+        </FormField>
       </div>
 
       <SubmitButton label="Create task" pendingLabel="Creating…" isPending={isSubmitting} />

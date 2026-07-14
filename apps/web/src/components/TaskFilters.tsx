@@ -1,6 +1,8 @@
 "use client";
 
 import type { TaskPriority, TaskStatus } from "@devflow/shared";
+import type { ReactNode } from "react";
+import { Input, Select } from "@/components/ui/fields";
 import type { OrganizationMember } from "@/lib/api";
 import { priorityOptions, statusOptions } from "@/lib/taskOptions";
 
@@ -26,8 +28,14 @@ type TaskFiltersProps = {
 // separate `unassigned=true` flag rather than an assignee id, so we translate.
 const UNASSIGNED = "__unassigned__";
 
-const controlClassName =
-  "block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
+function FilterField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-ink-muted">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
   const assigneeValue = value.unassigned ? UNASSIGNED : (value.assigneeId ?? "");
@@ -41,10 +49,9 @@ export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 rounded-md border border-neutral-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
-      <label className="text-sm font-medium text-neutral-700">
-        Status
-        <select
+    <div className="grid grid-cols-1 gap-3 rounded-card border border-edge-subtle bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <FilterField label="Status">
+        <Select
           value={value.status ?? ""}
           onChange={(event) =>
             onChange({
@@ -52,7 +59,6 @@ export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
               status: (event.target.value || undefined) as TaskStatus | undefined,
             })
           }
-          className={`mt-1 ${controlClassName}`}
         >
           <option value="">All</option>
           {statusOptions.map((option) => (
@@ -60,12 +66,11 @@ export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </FilterField>
 
-      <label className="text-sm font-medium text-neutral-700">
-        Priority
-        <select
+      <FilterField label="Priority">
+        <Select
           value={value.priority ?? ""}
           onChange={(event) =>
             onChange({
@@ -73,7 +78,6 @@ export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
               priority: (event.target.value || undefined) as TaskPriority | undefined,
             })
           }
-          className={`mt-1 ${controlClassName}`}
         >
           <option value="">All</option>
           {priorityOptions.map((option) => (
@@ -81,16 +85,11 @@ export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </FilterField>
 
-      <label className="text-sm font-medium text-neutral-700">
-        Assignee
-        <select
-          value={assigneeValue}
-          onChange={(event) => handleAssigneeChange(event.target.value)}
-          className={`mt-1 ${controlClassName}`}
-        >
+      <FilterField label="Assignee">
+        <Select value={assigneeValue} onChange={(event) => handleAssigneeChange(event.target.value)}>
           <option value="">Anyone</option>
           <option value={UNASSIGNED}>Unassigned</option>
           {members.map((member) => (
@@ -98,28 +97,24 @@ export function TaskFilters({ value, members, onChange }: TaskFiltersProps) {
               {member.user.name}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </FilterField>
 
-      <label className="text-sm font-medium text-neutral-700">
-        Due after
-        <input
+      <FilterField label="Due after">
+        <Input
           type="date"
           value={value.dueAfter ?? ""}
           onChange={(event) => onChange({ ...value, dueAfter: event.target.value || undefined })}
-          className={`mt-1 ${controlClassName}`}
         />
-      </label>
+      </FilterField>
 
-      <label className="text-sm font-medium text-neutral-700">
-        Due before
-        <input
+      <FilterField label="Due before">
+        <Input
           type="date"
           value={value.dueBefore ?? ""}
           onChange={(event) => onChange({ ...value, dueBefore: event.target.value || undefined })}
-          className={`mt-1 ${controlClassName}`}
         />
-      </label>
+      </FilterField>
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ActivityTimelineItem } from "@/components/ActivityTimelineItem";
+import { SectionHeader } from "@/components/ui/Card";
+import { ErrorState, LoadingState } from "@/components/ui/states";
 import type { ActivityContext } from "@/lib/activity-format";
 import {
   getProjectActivity,
@@ -61,29 +63,30 @@ export function ActivitySection({ source, id, members }: ActivitySectionProps) {
   }
 
   return (
-    <section className="mt-6 rounded-md border border-neutral-200 bg-white p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Activity</h2>
+    <section className="mt-10">
+      <SectionHeader title="Activity" />
 
       <div className="mt-4">
         {state === "loading" ? (
-          <p className="text-sm text-neutral-500">Loading activity…</p>
+          <LoadingState label="Loading activity…" />
         ) : state === "error" ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            Could not load activity. Please refresh to try again.
-          </p>
+          <ErrorState message="Could not load activity. Please refresh to try again." />
         ) : logs.length === 0 ? (
-          <p className="text-sm italic text-neutral-400">No activity yet.</p>
+          <p className="rounded-card border border-edge-subtle bg-surface px-4 py-6 text-center text-sm text-ink-muted">
+            No activity yet.
+          </p>
         ) : (
-          <ul className="flex flex-col gap-4">
-            {logs.map((log) => (
+          <ol className="relative flex flex-col gap-5 pl-1">
+            {logs.map((log, index) => (
               <ActivityTimelineItem
                 key={log.id}
                 log={log}
                 context={source}
                 resolveUserName={resolveUserName}
+                isLast={index === logs.length - 1}
               />
             ))}
-          </ul>
+          </ol>
         )}
       </div>
     </section>

@@ -1,10 +1,17 @@
 "use client";
 
-import Link from "next/link";
+import type { UserRole } from "@devflow/shared";
+import { SearchX } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AppFrame, FullPageLoader } from "@/components/app/AppFrame";
 import { MemberList } from "@/components/MemberList";
 import { ProjectsSection } from "@/components/ProjectsSection";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card, SectionHeader } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   clearActiveOrganizationId,
   getStoredActiveOrganizationId,
@@ -17,6 +24,13 @@ import {
   type OrganizationWithRole,
 } from "@/lib/api";
 import { useRequireUser } from "@/lib/useRequireUser";
+
+const roleTones: Record<UserRole, BadgeTone> = {
+  OWNER: "brand",
+  ADMIN: "info",
+  MEMBER: "neutral",
+  VIEWER: "faint",
+};
 
 export default function OrganizationDetailPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -67,11 +81,7 @@ export default function OrganizationDetailPage() {
   }, [user, organizationId]);
 
   if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-500">Loading…</p>
-      </main>
-    );
+    return <FullPageLoader />;
   }
 
   const canEdit = organization?.role === "OWNER" || organization?.role === "ADMIN";
@@ -79,62 +89,64 @@ export default function OrganizationDetailPage() {
   const canCreateProject = organization?.role !== "VIEWER";
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-950">
-      <div className="mx-auto w-full max-w-3xl px-6 py-10">
-        <Link href="/dashboard" className="text-sm font-medium text-emerald-700 hover:underline">
-          ← Back to dashboard
-        </Link>
-
-        {notFound ? (
-          <div className="mt-8 rounded-md border border-neutral-200 bg-white px-6 py-12 text-center">
-            <h1 className="text-lg font-semibold">Organization not found</h1>
-            <p className="mt-2 text-sm text-neutral-600">
-              This organization does not exist or you are not a member of it.
-            </p>
-          </div>
-        ) : error ? (
-          <p className="mt-8 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : !organization ? (
-          <p className="mt-8 text-sm text-neutral-500">Loading organization…</p>
-        ) : (
-          <>
-            <header className="mt-6 flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold">{organization.name}</h1>
-                <p className="mt-1 text-sm text-neutral-500">
-                  {organization.slug} · your role:{" "}
-                  <span className="font-medium text-neutral-700">{organization.role}</span>
-                </p>
-              </div>
-              {canEdit ? (
-                <button
-                  type="button"
-                  disabled
-                  title="Editing is coming in a future release."
-                  className="self-start rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-400 disabled:cursor-not-allowed sm:self-auto"
-                >
+    <AppFrame
+      user={user}
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: organization ? organization.name : "Organization" },
+      ]}
+    >
+      {notFound ? (
+        <EmptyState
+          variant="filtered"
+          icon={SearchX}
+          title="Organization not found"
+          description="This organization does not exist or you are not a member of it."
+        />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : !organization ? (
+        <LoadingState label="Loading organization…" />
+      ) : (
+        <>
+          <PageHeader
+            title={organization.name}
+            meta={
+              <>
+                <Badge tone={roleTones[organization.role] ?? "neutral"}>
+                  {organization.role.charAt(0) + organization.role.slice(1).toLowerCase()}
+                </Badge>
+                <span className="text-sm text-ink-muted">{organization.slug}</span>
+              </>
+            }
+            actions={
+              canEdit ? (
+                <Button disabled title="Editing is coming in a future release.">
                   Edit organization
-                </button>
-              ) : null}
-            </header>
+                </Button>
+              ) : undefined
+            }
+          />
 
-            <ProjectsSection organizationId={organization.id} canCreate={canCreateProject} />
+          <ProjectsSection organizationId={organization.id} canCreate={canCreateProject} />
 
-            <section className="mt-8 rounded-md border border-neutral-200 bg-white p-6">
-              <h2 className="text-lg font-semibold">Members</h2>
-              <div className="mt-2">
-                {members === null ? (
-                  <p className="text-sm text-neutral-500">Loading members…</p>
-                ) : (
-                  <MemberList members={members} currentUserId={user.id} />
-                )}
-              </div>
-            </section>
-          </>
-        )}
-      </div>
-    </main>
+          <section className="mt-10">
+            <SectionHeader
+              title="Members"
+              count={members !== null ? members.length : undefined}
+            />
+            <Card className="mt-4 px-5 py-2">
+              {members === null ? (
+                <div className="py-3">
+                  <LoadingState label="Loading members…" />
+                </div>
+              ) : (
+                <MemberList members={members} currentUserId={user.id} />
+              )}
+            </Card>
+          </section>
+        </>
+      )}
+    </AppFrame>
   );
 }

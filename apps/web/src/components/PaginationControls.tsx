@@ -1,5 +1,8 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/fields";
 import { PAGE_SIZE_OPTIONS } from "@/lib/listQuery";
 
 type PaginationControlsProps = {
@@ -13,12 +16,6 @@ type PaginationControlsProps = {
   onNext: () => void;
   onPageSizeChange: (pageSize: number) => void;
 };
-
-const buttonClassName =
-  "rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50";
-
-const selectClassName =
-  "rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
 
 /**
  * Prev/Next pagination for the cursor-paginated lists. The API returns no total
@@ -37,43 +34,35 @@ export function PaginationControls({
 }: PaginationControlsProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <label className="flex items-center gap-2 text-sm text-neutral-600">
+      <label className="flex items-center gap-2 text-sm text-ink-muted">
         Per page
-        <select
+        <Select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className={selectClassName}
           aria-label="Results per page"
+          className="w-auto py-1.5 tabular-nums"
         >
           {PAGE_SIZE_OPTIONS.map((size) => (
             <option key={size} value={size}>
               {size}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <div className="flex items-center gap-3">
-        <span className="text-sm text-neutral-600" aria-live="polite">
+        <span className="text-sm tabular-nums text-ink-muted" aria-live="polite">
           Page {pageIndex + 1}
         </span>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onPrev}
-            disabled={!hasPrev || isLoading}
-            className={buttonClassName}
-          >
+          <Button size="sm" onClick={onPrev} disabled={!hasPrev || isLoading}>
+            <ChevronLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Previous
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!hasNext || isLoading}
-            className={buttonClassName}
-          >
+          </Button>
+          <Button size="sm" onClick={onNext} disabled={!hasNext || isLoading}>
             Next
-          </button>
+            <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </Button>
         </div>
       </div>
     </div>

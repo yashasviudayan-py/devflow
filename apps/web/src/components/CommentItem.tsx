@@ -3,6 +3,9 @@
 import { updateCommentSchema, type UserRole } from "@devflow/shared";
 import { useState, type FormEvent } from "react";
 import { FormAlert } from "@/components/AuthCard";
+import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
+import { fieldErrorProps, Textarea } from "@/components/ui/fields";
 import {
   ApiError,
   deleteComment as deleteCommentRequest,
@@ -18,9 +21,6 @@ type CommentItemProps = {
   onUpdated: (comment: Comment) => void;
   onDeleted: (commentId: string) => void;
 };
-
-const textareaClassName =
-  "mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-950 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString(undefined, {
@@ -120,95 +120,84 @@ export function CommentItem({
     }
   }
 
+  const errorFieldId = `comment-${comment.id}-body`;
+
   return (
-    <li className="rounded-md border border-neutral-200 bg-white p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <div className="min-w-0">
-          <span className="text-sm font-medium text-neutral-900">{authorName}</span>
-          {comment.author?.email ? (
-            <span className="ml-2 text-xs text-neutral-500">{comment.author.email}</span>
-          ) : null}
+    <li className="flex gap-3">
+      <Avatar name={authorName} size="md" className="mt-0.5" />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span className="text-sm font-semibold text-ink">{authorName}</span>
+          <span className="text-xs tabular-nums text-ink-muted">
+            {formatDateTime(comment.createdAt)}
+            {wasEdited ? " · edited" : ""}
+          </span>
         </div>
-        <span className="text-xs text-neutral-500">
-          {formatDateTime(comment.createdAt)}
-          {wasEdited ? " · edited" : ""}
-        </span>
-      </div>
 
-      {actionError ? (
-        <div className="mt-3">
-          <FormAlert message={actionError} />
-        </div>
-      ) : null}
-
-      {isEditing ? (
-        <form onSubmit={handleSave} noValidate className="mt-3 flex flex-col gap-3">
-          <div>
-            <label htmlFor={`comment-${comment.id}-body`} className="sr-only">
-              Edit comment
-            </label>
-            <textarea
-              id={`comment-${comment.id}-body`}
-              rows={3}
-              value={draft}
-              aria-invalid={fieldError ? true : undefined}
-              aria-describedby={fieldError ? `comment-${comment.id}-error` : undefined}
-              onChange={(event) => setDraft(event.target.value)}
-              className={textareaClassName}
-            />
-            {fieldError ? (
-              <p id={`comment-${comment.id}-error`} className="mt-1 text-sm text-red-600">
-                {fieldError}
-              </p>
-            ) : null}
+        {actionError ? (
+          <div className="mt-3">
+            <FormAlert message={actionError} />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSaving ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={cancelEditing}
-              disabled={isSaving}
-              className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
-          <p className="mt-2 whitespace-pre-line text-sm text-neutral-800">{comment.body}</p>
+        ) : null}
 
-          {canEdit || canDelete ? (
-            <div className="mt-3 flex items-center gap-3 text-sm">
-              {canEdit ? (
-                <button
-                  type="button"
-                  onClick={startEditing}
-                  className="font-medium text-emerald-700 hover:underline"
-                >
-                  Edit
-                </button>
-              ) : null}
-              {canDelete ? (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="font-medium text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isDeleting ? "Deleting…" : "Delete"}
-                </button>
+        {isEditing ? (
+          <form onSubmit={handleSave} noValidate className="mt-2 flex flex-col gap-3">
+            <div>
+              <label htmlFor={errorFieldId} className="sr-only">
+                Edit comment
+              </label>
+              <Textarea
+                id={errorFieldId}
+                rows={3}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                {...fieldErrorProps(errorFieldId, fieldError)}
+              />
+              {fieldError ? (
+                <p id={`${errorFieldId}-error`} className="mt-1.5 text-sm text-red-600">
+                  {fieldError}
+                </p>
               ) : null}
             </div>
-          ) : null}
-        </>
-      )}
+            <div className="flex items-center gap-2">
+              <Button type="submit" variant="primary" size="sm" isLoading={isSaving}>
+                {isSaving ? "Saving…" : "Save"}
+              </Button>
+              <Button size="sm" onClick={cancelEditing} disabled={isSaving}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <p className="mt-1 whitespace-pre-line text-sm leading-6 text-ink-secondary">
+              {comment.body}
+            </p>
+
+            {canEdit || canDelete ? (
+              <div className="mt-1.5 flex items-center gap-1">
+                {canEdit ? (
+                  <Button variant="ghost" size="sm" onClick={startEditing} className="-ml-3">
+                    Edit
+                  </Button>
+                ) : null}
+                {canDelete ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className={`text-red-700 hover:bg-red-50 hover:text-red-800 ${canEdit ? "" : "-ml-3"}`}
+                  >
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
     </li>
   );
 }

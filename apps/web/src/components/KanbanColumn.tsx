@@ -1,8 +1,10 @@
 import { KanbanTaskCard } from "@/components/KanbanTaskCard";
+import { statusDotClasses } from "@/components/TaskBadges";
 import type { Task } from "@/lib/api";
 import type { BoardStatus } from "@/lib/kanban";
 
 type KanbanColumnProps = {
+  status: BoardStatus;
   label: string;
   tasks: Task[];
   canManage: boolean;
@@ -11,6 +13,7 @@ type KanbanColumnProps = {
 };
 
 export function KanbanColumn({
+  status,
   label,
   tasks,
   canManage,
@@ -18,20 +21,26 @@ export function KanbanColumn({
   onMove,
 }: KanbanColumnProps) {
   return (
-    <section className="flex w-full flex-col rounded-lg border border-neutral-200 bg-neutral-100/70 p-3 sm:w-72 sm:shrink-0">
-      <header className="flex items-center justify-between px-1 pb-3">
-        <h2 className="text-sm font-semibold text-neutral-700">{label}</h2>
-        <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-600">
+    <section
+      aria-label={`${label} column`}
+      className="flex w-full flex-col rounded-card border border-edge-subtle bg-canvas-subtle p-3 sm:w-[290px] sm:shrink-0"
+    >
+      <header className="flex items-center justify-between px-1.5 pb-3 pt-1">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-ink-secondary">
+          <span aria-hidden className={`h-2 w-2 rounded-full ${statusDotClasses[status]}`} />
+          {label}
+        </h2>
+        <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-medium tabular-nums text-ink-muted ring-1 ring-edge-subtle">
           {tasks.length}
         </span>
       </header>
 
       {tasks.length === 0 ? (
-        <p className="rounded-md border border-dashed border-neutral-300 px-3 py-6 text-center text-xs text-neutral-400">
+        <p className="rounded-[10px] border border-dashed border-edge-strong px-3 py-8 text-center text-xs text-ink-faint">
           No tasks
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-2.5">
           {tasks.map((task) => (
             <KanbanTaskCard
               key={task.id}
