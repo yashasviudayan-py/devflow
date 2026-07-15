@@ -1,5 +1,6 @@
 import { Activity, Columns3, Users } from "lucide-react";
 import Link from "next/link";
+import { WindTree } from "@/components/decor/WindTree";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { buttonClasses } from "@/components/ui/Button";
 
@@ -28,7 +29,11 @@ const previewColumns = [
     label: "To do",
     dot: "bg-ink-faint",
     cards: [
-      { title: "Draft release notes", badge: "Low", badgeClass: "bg-canvas-subtle text-ink-secondary" },
+      {
+        title: "Draft release notes",
+        badge: "Low",
+        badgeClass: "bg-canvas-subtle text-ink-secondary",
+      },
       { title: "Update onboarding doc", badge: "Medium", badgeClass: "bg-sky-50 text-sky-800" },
     ],
   },
@@ -51,8 +56,9 @@ const previewColumns = [
  */
 export function AppShell() {
   return (
-    <main className="min-h-screen bg-canvas text-ink">
-      <div className="mx-auto flex w-full max-w-5xl flex-col px-6">
+    <main className="relative min-h-screen overflow-hidden bg-canvas text-ink">
+      <WindTree />
+      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col px-6">
         <header className="flex items-center justify-between py-6">
           <BrandMark href="/" />
           <nav aria-label="Account" className="flex items-center gap-2">
@@ -120,7 +126,10 @@ export function AppShell() {
 
         <section className="grid grid-cols-1 gap-4 border-t border-edge-subtle py-14 sm:grid-cols-3">
           {features.map((feature) => (
-            <div key={feature.title} className="rounded-card border border-edge-subtle bg-surface p-5">
+            <div
+              key={feature.title}
+              className="rounded-card border border-edge-subtle bg-surface p-5"
+            >
               <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-brand-50 text-brand-700">
                 <feature.icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               </span>

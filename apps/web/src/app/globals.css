@@ -58,6 +58,169 @@
   }
 }
 
+/*
+ * Decorative "wind tree" landing scene.
+ *
+ * A tree stands in the open space at the left of the hero; a left-to-right wind
+ * lifts leaves off its canopy, tumbles them across the page, and lets them
+ * settle toward the ground on the right. Every part loops seamlessly. Motion is
+ * expressed purely through CSS keyframes so the scene can render as a server
+ * component, and the reduced-motion block below freezes it for people who ask.
+ *
+ * Per-element variation (travel distance, spin direction, timing) is passed in
+ * as CSS custom properties so a single set of keyframes drives many leaves.
+ */
+
+/* The whole tree breathes at its base, as if leaning into the wind. */
+@keyframes tree-sway {
+  0%,
+  100% {
+    transform: rotate(-0.5deg);
+  }
+  50% {
+    transform: rotate(0.9deg);
+  }
+}
+
+/* Outer boughs answer the gust a beat later and a touch further. */
+@keyframes bough-sway {
+  0%,
+  100% {
+    transform: rotate(-1.4deg) translateX(-1px);
+  }
+  50% {
+    transform: rotate(2deg) translateX(2px);
+  }
+}
+
+/*
+ * A leaf's flight: caught upward by the gust, then carried down and to the
+ * right toward the ground. `--tx`/`--ty` set the landing offset; the arc lifts
+ * before it descends so the wind reads as a real force, not a straight fall.
+ */
+@keyframes leaf-travel {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  7% {
+    opacity: var(--leaf-o, 0.9);
+  }
+  22% {
+    transform: translate3d(calc(var(--tx) * 0.2), calc(var(--ty) * 0.06 - 4vh), 0);
+  }
+  52% {
+    transform: translate3d(calc(var(--tx) * 0.53), calc(var(--ty) * 0.4 - 1.5vh), 0);
+  }
+  80% {
+    transform: translate3d(calc(var(--tx) * 0.8), calc(var(--ty) * 0.76), 0);
+    opacity: var(--leaf-o, 0.9);
+  }
+  100% {
+    transform: translate3d(var(--tx), var(--ty), 0);
+    opacity: 0;
+  }
+}
+
+/* The leaf tumbles as it travels; the mid-flight squash reads as an edge-on flip. */
+@keyframes leaf-tumble {
+  0% {
+    transform: rotate(0deg) scaleX(1);
+  }
+  50% {
+    transform: rotate(calc(var(--dir, 1) * 190deg)) scaleX(0.45);
+  }
+  100% {
+    transform: rotate(calc(var(--dir, 1) * 360deg)) scaleX(1);
+  }
+}
+
+/* Faint gusts streak across the scene to make the wind itself visible. */
+@keyframes wind-streak {
+  0% {
+    transform: translateX(-16vw) scaleX(0.6);
+    opacity: 0;
+  }
+  18%,
+  70% {
+    opacity: var(--wind-o, 0.5);
+  }
+  100% {
+    transform: translateX(116vw) scaleX(1.1);
+    opacity: 0;
+  }
+}
+
+/* A leaf already on the ground stirs now and then when the wind picks up. */
+@keyframes leaf-settle {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg) translateX(0);
+  }
+  92% {
+    transform: rotate(var(--rest-spin, 8deg)) translateX(3px);
+  }
+}
+
+/* Grass ripples as the wind passes over it. */
+@keyframes grass-sway {
+  0%,
+  100% {
+    transform: skewX(-3.5deg);
+  }
+  50% {
+    transform: skewX(4.5deg);
+  }
+}
+
+/* The cat glances around, with pauses, as if watching the leaves go by. */
+@keyframes cat-look {
+  0%,
+  20% {
+    transform: rotate(0deg);
+  }
+  30%,
+  42% {
+    transform: rotate(-7deg);
+  }
+  54%,
+  72% {
+    transform: rotate(6deg);
+  }
+  84%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* The tail flicks and swishes — the cat at play. */
+@keyframes cat-tail {
+  0%,
+  100% {
+    transform: rotate(-11deg);
+  }
+  25% {
+    transform: rotate(9deg);
+  }
+  55% {
+    transform: rotate(-5deg);
+  }
+  80% {
+    transform: rotate(15deg);
+  }
+}
+
+/* Emerald sap pulses travelling down the below-the-fold roots. */
+@keyframes root-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -320;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
