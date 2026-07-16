@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { NotificationBell } from "@/components/NotificationBell";
+import { AmbientLeaves, SidebarScene } from "@/components/decor/WindScene";
 import { Avatar } from "@/components/ui/Avatar";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { Spinner } from "@/components/ui/Spinner";
@@ -193,6 +194,8 @@ export function AppFrame({ user, breadcrumbs, width = "default", children }: App
           <BrandMark href="/dashboard" />
         </div>
         <NavLinks pathname={pathname} className="mt-8 flex-1" />
+        {/* The tree and cat rest on the account block's top rule. */}
+        <SidebarScene />
         <AccountBlock
           user={user}
           isSigningOut={isSigningOut}
@@ -236,8 +239,10 @@ export function AppFrame({ user, breadcrumbs, width = "default", children }: App
         ) : null}
       </header>
 
-      {/* Content column */}
-      <div className="lg:pl-[250px]">
+      {/* Content column. `isolate` keeps the ambient leaves (-z-10) behind the
+          page content but above the canvas background. */}
+      <div className="isolate lg:pl-[250px]">
+        <AmbientLeaves className="fixed inset-y-0 left-0 right-0 -z-10 lg:left-[250px]" />
         <div className={`mx-auto w-full px-4 py-6 sm:px-6 lg:px-10 lg:py-8 ${contentWidth}`}>
           <div className="mb-6 flex items-center justify-between gap-4">
             {breadcrumbs && breadcrumbs.length > 0 ? <Breadcrumbs crumbs={breadcrumbs} /> : <div />}
